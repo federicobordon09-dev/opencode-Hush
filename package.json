@@ -1,0 +1,62 @@
+{
+  "name": "opencode-hush",
+  "version": "0.1.0",
+  "description": "Minimal adaptive telemetry for the OpenCode TUI - silent by default, loud only when it matters",
+  "type": "module",
+  "license": "MIT",
+  "author": "Federico Bordon",
+  "homepage": "https://github.com/federicobordon09-dev/opencode-Hush#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/federicobordon09-dev/opencode-Hush.git"
+  },
+  "bugs": {
+    "url": "https://github.com/federicobordon09-dev/opencode-Hush/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "telemetry",
+    "statusline",
+    "tokens",
+    "context",
+    "minimal"
+  ],
+  "exports": {
+    "./tui": "./dist/tui.js"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsc --noEmit --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "node scripts/build-entry.mjs",
+    "prepublishOnly": "pnpm build && pnpm typecheck && pnpm test"
+  },
+  "packageManager": "pnpm@12.14.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.0.32"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.17",
+    "@opentui/solid": ">=0.5.17",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@opencode/theme": "2.0.32",
+    "@opentui/core": "^0.6.6",
+    "@opentui/solid": "^0.6.6",
+    "@types/node": "^26.6.5",
+    "solid-js": "^1.9.17",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
