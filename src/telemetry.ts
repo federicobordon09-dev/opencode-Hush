@@ -7,9 +7,9 @@
  *   reads the host store directly, so Solid re-renders exactly when the host
  *   pushes new data. Nothing is cached, nothing is polled.
  * - `createTelemetry` adds what the host store cannot answer on its own: a
- *   one-second clock for elapsed time, and live measurements (generation speed,
- *   reasoning in progress) sampled from events. Every subscription is owned by
- *   the component that created it and released when it unmounts.
+ *   one-second clock for elapsed time and the reasoning-in-progress flag, both
+ *   driven by host events. Every subscription is owned by the component that
+ *   created it and released when it unmounts.
  *
  * The pair exists so the store-derived view can be used and tested on its own:
  * `createSessionData` never owns a timer or an event subscription, while
@@ -23,12 +23,11 @@ import {
   contextMessage,
   contextPressure,
   contextUsage,
-  generationRate,
-  totalTokens,
+  sumTokenTotals,
   type ContextUsage,
   type ConversationMessage,
   type Pressure,
-  type RateSample,
+  type TokenUsageView,
 } from "./core/usage.ts"
 
 type Context = Plugin.Context
@@ -37,9 +36,6 @@ type SessionMessage = ReturnType<Context["data"]["session"]["message"]["list"]>[
 
 /** Locations whose collections Hush already asked the host to load. One request per directory, never a poll. */
 const primed = new Set<string>()
-
-/** Newest samples kept for the speed measurement; the rest age out of the window. */
-const SAMPLE_LIMIT = 8
 
 /** A model identity as the host reports it. */
 export type ModelRefView = { readonly providerID: string; readonly id: string }
@@ -53,7 +49,10 @@ export type SessionData = {
   readonly modelName: (ref: ModelRefView | undefined) => string | undefined
   readonly usage: Accessor<ContextUsage | undefined>
   readonly pressure: Accessor<Pressure>
+  /** Tokens the whole family processed: input + output + reasoning + cache.write. */
   readonly sessionTokens: Accessor<number>
+  /** Tokens the whole family read from the provider cache. */
+  readonly cachedTokens: Accessor<number>
   readonly cost: Accessor<number>
   readonly branch: Accessor<string | undefined>
   /** True when a collection Hush needs could not be loaded from the host. */
@@ -65,8 +64,6 @@ export type Telemetry = SessionData & {
   /** Wall clock, ticking once per second while the panel is mounted. */
   readonly now: Accessor<number>
   readonly elapsed: Accessor<number | undefined>
-  /** Live generation speed, undefined whenever it cannot be measured. */
-  readonly rate: Accessor<number | undefined>
   /** True while the active session is streaming reasoning content. */
   readonly reasoning: Accessor<boolean>
 }
@@ -140,6 +137,24 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     return id === undefined ? undefined : data.session.root(id)
   })
 
+  /**
+   * Token totals for the whole family: the root session plus every session the
+   * host groups under it. Same base as the cost the host reports, so the two
+   * numbers describe the same work.
+   */
+  const familyTokens = createMemo(() => {
+    const root = rootID()
+    if (root === undefined) return undefined
+    const ids = new Set<string>([root])
+    for (const id of data.session.family(root)) ids.add(id)
+    const usages: TokenUsageView[] = []
+    for (const info of data.session.list()) {
+      if (!ids.has(info.id)) continue
+      usages.push(info.tokens)
+    }
+    return sumTokenTotals(usages)
+  })
+
   return {
     startedAt: createMemo(() => {
       const created = session()?.time.created
@@ -155,10 +170,8 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     },
     usage,
     pressure: createMemo(() => contextPressure(usage()?.ratio)),
-    sessionTokens: createMemo(() => {
-      const info = session()
-      return info === undefined ? 0 : totalTokens(info.tokens)
-    }),
+    sessionTokens: createMemo(() => familyTokens()?.tokens ?? 0),
+    cachedTokens: createMemo(() => familyTokens()?.cached ?? 0),
     cost: createMemo(() => {
       // The host reports a root session's cost over its whole family, so subagent
       // spend is never missing and never counted twice.
@@ -173,34 +186,9 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
 export function createTelemetry(context: Context, sessionID: Accessor<string | undefined>): Telemetry {
   const base = createSessionData(context, sessionID)
 
-  // One timer for the whole panel: elapsed time and speed-window expiry both read it.
+  // One timer for the whole panel: the clock the elapsed row reads.
   const [now, setNow] = createSignal(Date.now())
   const ticker: ReturnType<typeof setInterval> = setInterval(() => setNow(Date.now()), 1_000)
-
-  const samples: RateSample[] = []
-  let sampledSession: string | undefined
-  let lastEventID: string | undefined
-  const [sampleTick, setSampleTick] = createSignal(0)
-
-  const stopUsage = context.data.on("session.usage.updated", (event) => {
-    // The same event delivered twice must not push the same measurement twice.
-    if (event.id === lastEventID) return
-    lastEventID = event.id
-
-    // Only the session on screen: a subagent's usage must never move this rate.
-    const id = sessionID()
-    if (id === undefined || event.data.sessionID !== id) return
-
-    const cumulative = totalTokens(event.data.tokens)
-    if (!Number.isFinite(cumulative)) return
-    if (sampledSession !== id) {
-      samples.length = 0
-      sampledSession = id
-    }
-    samples.push({ at: Number.isFinite(event.created) ? event.created : Date.now(), total: cumulative })
-    if (samples.length > SAMPLE_LIMIT) samples.splice(0, samples.length - SAMPLE_LIMIT)
-    setSampleTick((value) => value + 1)
-  })
 
   const [reasoningSessions, setReasoningSessions] = createSignal<ReadonlySet<string>>(new Set())
   const markReasoning = (id: string, active: boolean) => {
@@ -228,7 +216,6 @@ export function createTelemetry(context: Context, sessionID: Accessor<string | u
 
   onCleanup(() => {
     clearInterval(ticker)
-    stopUsage()
     for (const stop of stops) stop()
   })
 
@@ -239,13 +226,6 @@ export function createTelemetry(context: Context, sessionID: Accessor<string | u
       const started = base.startedAt()
       if (started === undefined) return undefined
       return Math.max(0, now() - started)
-    }),
-    rate: createMemo(() => {
-      sampleTick()
-      const clock = now()
-      const id = sessionID()
-      if (id === undefined || id !== sampledSession) return undefined
-      return generationRate(samples, clock)
     }),
     reasoning: createMemo(() => {
       const id = sessionID()

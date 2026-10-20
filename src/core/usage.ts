@@ -41,6 +41,42 @@ export function totalTokens(tokens: TokenUsageView): number {
 }
 
 /**
+ * The tokens a session actually processed: everything the model read or wrote
+ * plus the prompt it wrote into the provider cache. Cached reads are left out
+ * because the provider did not have to process them again.
+ */
+export function processedTokens(tokens: TokenUsageView): number {
+  return usable(tokens.input) + usable(tokens.output) + usable(tokens.reasoning) + usable(tokens.cache?.write)
+}
+
+/** Token totals for a set of sessions, split so the cached reads stand apart. */
+export type TokenTotals = {
+  /** input + output + reasoning + cache.write */
+  readonly tokens: number
+  /** cache.read */
+  readonly cached: number
+}
+
+/**
+ * Sums the counters of every session in a family. Both totals are cumulative:
+ * they describe what the whole tree consumed, not the window the context holds.
+ */
+export function sumTokenTotals(usages: readonly TokenUsageView[]): TokenTotals {
+  let tokens = 0
+  let cached = 0
+  for (const usage of usages) {
+    tokens += processedTokens(usage)
+    cached += usable(usage.cache?.read)
+  }
+  return { tokens, cached }
+}
+
+/** A counter the host has not filled in yet is unknown, not negative. */
+function usable(value: number | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0
+}
+
+/**
  * The assistant message whose tokens describe the context window right now: the
  * newest one carrying usage, after the last completed compaction and before the
  * revert boundary. Returns undefined when the session has no such message.
@@ -104,33 +140,4 @@ export function contextPressure(ratio: number | undefined): Pressure {
   if (ratio >= CRITICAL_AT) return "critical"
   if (ratio >= WARN_AT) return "warn"
   return "calm"
-}
-
-/** One measurement point: the cumulative tokens a session had at a wall-clock time. */
-export type RateSample = { readonly at: number; readonly total: number }
-
-/** Rolling window used to measure generation speed. */
-export const RATE_WINDOW_MS = 8_000
-
-/** Below this span a sample pair says nothing about speed. */
-const RATE_MIN_SPAN_MS = 400
-
-/**
- * Tokens per second across the newest window of samples, or undefined when the
- * samples cannot support a trustworthy number (too few, too close together, or
- * no growth). Callers hide the metric rather than render a fabricated zero.
- */
-export function generationRate(samples: readonly RateSample[], now: number, windowMs = RATE_WINDOW_MS): number | undefined {
-  if (samples.length < 2 || !Number.isFinite(now)) return undefined
-  const fresh = samples.filter((sample) => Number.isFinite(sample.at) && now - sample.at <= windowMs)
-  if (fresh.length < 2) return undefined
-
-  const first = fresh[0]
-  const last = fresh[fresh.length - 1]
-  const span = last.at - first.at
-  if (!Number.isFinite(span) || span < RATE_MIN_SPAN_MS) return undefined
-
-  const delta = last.total - first.total
-  if (!Number.isFinite(delta) || delta <= 0) return undefined
-  return delta / (span / 1_000)
 }

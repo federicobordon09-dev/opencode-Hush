@@ -4,13 +4,16 @@ import {
   contextMessage,
   contextPressure,
   contextUsage,
-  generationRate,
+  processedTokens,
+  sumTokenTotals,
   totalTokens,
   type ConversationMessage,
   type TokenUsageView,
 } from "../src/core/usage.ts"
 
-const usage = (values: Partial<TokenUsageView> = {}): TokenUsageView => ({
+const usage = (
+  values: Partial<Omit<TokenUsageView, "cache">> & { cache?: Partial<TokenUsageView["cache"]> } = {},
+): TokenUsageView => ({
   input: values.input ?? 0,
   output: values.output ?? 0,
   reasoning: values.reasoning ?? 0,
@@ -28,6 +31,45 @@ describe("totalTokens", () => {
 
   it("returns zero for an empty record", () => {
     expect(totalTokens(usage())).toBe(0)
+  })
+})
+
+describe("processedTokens", () => {
+  it("counts input, output, reasoning and cache writes", () => {
+    expect(processedTokens(usage({ input: 100, output: 20, reasoning: 5, cache: { read: 1_000, write: 200 } }))).toBe(325)
+  })
+
+  it("leaves the cached reads out", () => {
+    expect(processedTokens(usage({ cache: { read: 5_000 } }))).toBe(0)
+    expect(processedTokens(usage({ input: 10, cache: { read: 5_000 } }))).toBe(10)
+  })
+
+  it("treats a counter the host never filled in as zero", () => {
+    expect(processedTokens(usage({ input: Number.NaN, output: Number.POSITIVE_INFINITY }))).toBe(0)
+    expect(processedTokens(usage({ input: Number.NaN, output: 7 }))).toBe(7)
+  })
+})
+
+describe("sumTokenTotals", () => {
+  it("splits processed tokens from cached reads across a family", () => {
+    const root = usage({ input: 3_000, output: 900, reasoning: 100, cache: { read: 50_000, write: 0 } })
+    const child = usage({ input: 200, output: 40, reasoning: 10, cache: { read: 2_000, write: 5 } })
+    expect(sumTokenTotals([root, child])).toEqual({ tokens: 4_255, cached: 52_000 })
+  })
+
+  it("reports zero for a family with no sessions", () => {
+    expect(sumTokenTotals([])).toEqual({ tokens: 0, cached: 0 })
+  })
+
+  it("keeps the cached reads out of the processed total", () => {
+    const totals = sumTokenTotals([usage({ input: 10, cache: { read: 900 } })])
+    expect(totals.tokens).toBe(10)
+    expect(totals.cached).toBe(900)
+  })
+
+  it("ignores counters the host never filled in", () => {
+    const totals = sumTokenTotals([usage({ input: Number.NaN, cache: { read: Number.NaN } }), usage({ output: 5 })])
+    expect(totals).toEqual({ tokens: 5, cached: 0 })
   })
 })
 
@@ -114,61 +156,5 @@ describe("contextPressure", () => {
   it("never invents pressure without a ratio", () => {
     expect(contextPressure(undefined)).toBe("calm")
     expect(contextPressure(Number.NaN)).toBe("calm")
-  })
-})
-
-describe("generationRate", () => {
-  it("measures tokens per second across the window", () => {
-    const samples = [
-      { at: 1_000, total: 500 },
-      { at: 3_000, total: 2_500 },
-    ]
-    expect(generationRate(samples, 3_000)).toBe(1_000)
-  })
-
-  it("uses the newest samples and drops the stale ones", () => {
-    const samples = [
-      { at: 0, total: 0 },
-      { at: 10_000, total: 1_000 },
-      { at: 12_000, total: 2_000 },
-    ]
-    expect(generationRate(samples, 12_000)).toBe(500)
-  })
-
-  it("hides the metric when there is nothing to measure", () => {
-    expect(generationRate([], 1_000)).toBeUndefined()
-    expect(generationRate([{ at: 1_000, total: 10 }], 1_000)).toBeUndefined()
-    expect(generationRate([{ at: 1_000, total: 10 }, { at: 1_100, total: 20 }], 1_100)).toBeUndefined()
-  })
-
-  it("never returns a rate for a stalled or shrinking session", () => {
-    const flat = [
-      { at: 1_000, total: 500 },
-      { at: 3_000, total: 500 },
-    ]
-    expect(generationRate(flat, 3_000)).toBeUndefined()
-
-    const shrinking = [
-      { at: 1_000, total: 900 },
-      { at: 3_000, total: 100 },
-    ]
-    expect(generationRate(shrinking, 3_000)).toBeUndefined()
-  })
-
-  it("hides the metric once every sample is stale", () => {
-    const samples = [
-      { at: 1_000, total: 500 },
-      { at: 3_000, total: 2_500 },
-    ]
-    expect(generationRate(samples, 60_000)).toBeUndefined()
-  })
-
-  it("ignores samples with an unusable timestamp", () => {
-    const samples = [
-      { at: Number.NaN, total: 500 },
-      { at: 1_000, total: 500 },
-      { at: 3_000, total: 2_500 },
-    ]
-    expect(generationRate(samples, 3_000)).toBe(1_000)
   })
 })

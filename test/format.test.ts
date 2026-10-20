@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { formatCost, formatDuration, formatPercent, formatRate, formatTokens } from "../src/core/format.ts"
+import { formatCost, formatDuration, formatPercent, formatTokens } from "../src/core/format.ts"
 
 describe("formatTokens", () => {
   it("renders small counts as-is", () => {
@@ -87,22 +87,5 @@ describe("formatCost", () => {
     expect(formatCost(0)).toBe("$0.00")
     expect(formatCost(-3)).toBe("$0.00")
     expect(formatCost(Number.NaN)).toBe("$0.00")
-  })
-})
-
-describe("formatRate", () => {
-  it("renders one decimal below three digits", () => {
-    expect(formatRate(12.64)).toBe("12.6 tok/s")
-    expect(formatRate(99.9)).toBe("99.9 tok/s")
-  })
-
-  it("drops the decimal at three digits", () => {
-    expect(formatRate(158.4)).toBe("158 tok/s")
-  })
-
-  it("treats absent or invalid rates as zero", () => {
-    expect(formatRate(0)).toBe("0 tok/s")
-    expect(formatRate(-1)).toBe("0 tok/s")
-    expect(formatRate(Number.NaN)).toBe("0 tok/s")
   })
 })

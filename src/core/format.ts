@@ -46,10 +46,3 @@ export function formatCost(amount: number): string {
   if (amount < 0.01) return "<$0.01"
   return `$${amount.toFixed(2)}`
 }
-
-/** Formats a generation rate: 12.6 tok/s, 158 tok/s. */
-export function formatRate(tokensPerSecond: number): string {
-  if (!Number.isFinite(tokensPerSecond) || tokensPerSecond <= 0) return "0 tok/s"
-  if (tokensPerSecond >= 100) return `${Math.round(tokensPerSecond)} tok/s`
-  return `${tokensPerSecond.toFixed(1)} tok/s`
-}

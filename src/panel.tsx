@@ -19,7 +19,7 @@
 import { Show, type JSX } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
-import { formatCost, formatDuration, formatRate, formatTokens } from "./core/format.ts"
+import { formatCost, formatDuration, formatTokens } from "./core/format.ts"
 import type { Pressure } from "./core/usage.ts"
 import { createTelemetry } from "./telemetry.ts"
 
@@ -48,12 +48,12 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     const value = view.elapsed()
     return value === undefined ? undefined : formatDuration(value)
   }
-  const rateText = () => {
-    const value = view.rate()
-    return value === undefined ? undefined : formatRate(value)
-  }
   const tokensText = () => {
     const value = view.sessionTokens()
+    return value > 0 ? `${formatTokens(value)} tok` : undefined
+  }
+  const cachedText = () => {
+    const value = view.cachedTokens()
     return value > 0 ? `${formatTokens(value)} tok` : undefined
   }
   const costText = () => {
@@ -66,17 +66,17 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     view.branch() === undefined &&
     modelText() === undefined &&
     costText() === undefined &&
-    rateText() === undefined &&
     tokensText() === undefined &&
+    cachedText() === undefined &&
     elapsedText() === undefined &&
     reasoningText() === undefined
 
-  /** One hue per metric. The last two are shades of the first two, so six rows stay distinct. */
+  /** One hue per metric. The last three are shades of the first two, so every row stays distinct. */
   const dot = {
     model: categoricalColor(theme, 0),
     cost: categoricalColor(theme, 3),
-    rate: categoricalColor(theme, 2),
     tokens: categoricalColor(theme, 1),
+    cached: theme.decrease(categoricalColor(theme, 1), 2),
     elapsed: theme.increase(categoricalColor(theme, 0), 2),
     reasoning: theme.increase(categoricalColor(theme, 1), 2),
   }
@@ -86,11 +86,17 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
    * name truncates instead of pushing the row past the sidebar. The one-cell gap
    * keeps the label readable even when the value is at its narrowest.
    */
-  const Row = (row: { readonly label: string; readonly color: Color; readonly children: JSX.Element }) => (
+  const Row = (row: {
+    readonly label: string
+    readonly color: Color
+    readonly children: JSX.Element
+    /** Secondary rows step back one tone so the primary metrics stay readable. */
+    readonly dim?: boolean
+  }) => (
     <box flexDirection="row" gap={1}>
       <box width={LABEL_WIDTH} flexShrink={0} flexDirection="row">
         <text fg={row.color}>{"● "}</text>
-        <text fg={theme.text.muted} wrapMode="none">
+        <text fg={row.dim ? theme.text.faint : theme.text.muted} wrapMode="none">
           {row.label}
         </text>
       </box>
@@ -140,7 +146,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
           )}
         </Show>
 
-        <Show when={modelText() !== undefined || costText() !== undefined || rateText() !== undefined || tokensText() !== undefined}>
+        <Show when={modelText() !== undefined || costText() !== undefined || tokensText() !== undefined || cachedText() !== undefined}>
           <box flexDirection="column" marginTop={1}>
             <Divider theme={theme} />
             <Show when={modelText()}>
@@ -159,17 +165,17 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
                 </Row>
               )}
             </Show>
-            <Show when={rateText()}>
-              {(value) => (
-                <Row label="Rate" color={dot.rate}>
-                  <text fg={theme.text.muted}>{value()}</text>
-                </Row>
-              )}
-            </Show>
             <Show when={tokensText()}>
               {(value) => (
                 <Row label="Tokens" color={dot.tokens}>
                   <text fg={theme.text.muted}>{value()}</text>
+                </Row>
+              )}
+            </Show>
+            <Show when={cachedText()}>
+              {(value) => (
+                <Row label="Cached" color={dot.cached} dim>
+                  <text fg={theme.text.faint}>{value()}</text>
                 </Row>
               )}
             </Show>
