@@ -10,29 +10,27 @@ Minimal telemetry for the [OpenCode](https://opencode.ai) TUI. Quiet while every
 
 | Section | Content | Where it comes from |
 | --- | --- | --- |
-| **Context** | tokens in the window, model limit, percentage, pressure bar | last assistant message carrying usage, after the last completed compaction and before the revert boundary; limit from `ModelInfo.limit.context` |
+| **Context** | tokens in the window, model limit, pressure bar | last assistant message carrying usage, after the last completed compaction and before the revert boundary; limit from `ModelInfo.limit.context` |
 | **Git** | current branch | `data.location.vcs.info()` |
-| **Agents** | child sessions with state, model, tokens and cost | `data.session.family()`, `session.list()`, `session.status()` |
-| **Meta** | model, session cost, live tok/s, session tokens, elapsed time, reasoning | session store plus `session.usage.updated` and `session.reasoning.*` events |
+| **Meta** | model, session cost, live tok/s, session tokens, elapsed time, active reasoning | session store plus `session.usage.updated` and `session.reasoning.*` events |
 
-Sections with no data render nothing. A missing limit still shows tokens, just without a percentage.
+Sections with no data render nothing. A missing limit still shows tokens, just without a pressure bar.
 
 ### Semantics that matter
 
 - **Context ≠ session total.** Context is the tokens the current window holds. The cumulative figure is labelled `Tokens` in the summary block, so the two are never mixed.
 - **Cost** is the family total the host reports for the root session, so subagent spend is counted once.
 - **Generation speed** is sampled from successive `session.usage.updated` events over a rolling 8 s window. It disappears when there are too few samples, they are closer than 400 ms, they are stale, or they show no growth.
-- **Reasoning** reads `active` while reasoning content streams (`session.reasoning.started` → `ended` / idle / execution end) and `supported` when the model's provider compatibility declares a reasoning field. It is never inferred from a model name or from timing.
-- **Pressure** is the only adaptive behavior in this version: `calm` below 70%, `warn` at 70%, `critical` at 90%. It colors the percentage and the bar, and the percentage itself carries the same information.
+- **Reasoning** reads `active` only while reasoning content streams (`session.reasoning.started` → `ended` / idle / execution end). It is never inferred from a model name or from timing, and the row is hidden when reasoning is not active.
+- **Pressure** is the only adaptive behavior in this version: `calm` below 70%, `warn` at 70%, `critical` at 90%. It colors the Context dot and the pressure bar.
 
 ## Limitations
 
-- **No duplicated host data.** OpenCode already renders MCP status and the prompt footer, so Hush does not claim either slot. The sidebar panel adds only context, agents, Git and the secondary session metrics.
-- **Narrow terminals use a proxy.** The sidebar slot does not publish its own width, so the wide/compact breakpoint (`90` columns) reads the render surface width. Narrow terminals lose per-agent model first; the primary metrics never drop.
+- **No duplicated host data.** OpenCode already renders MCP status, subagent status and the prompt footer, so Hush does not claim those slots. The sidebar panel adds only context, Git and the secondary session metrics.
+- **Subagents are host-owned.** Hush does not render its own agent list; the host remains the source of truth for subagent state, duration and tokens.
+- **Model names truncate, not wrap.** The Model row keeps the label column fixed and ellipsizes a long name, so it never pushes the sidebar wider.
 - **Git is branch only.** The plugin API exposes `VcsInfo` with the current branch, not a diff count. Hush therefore never claims dirty files or `+n −n`.
 - **Plan/quota is not implemented.** The plugin API does not expose plan usage. Hush does not call undocumented endpoints, read credentials, or infer a plan from cost.
-- **Subagent errors are a state, not a message.** A failed agent shows `✗` and counts under `err`; the host's structured error text is not rendered.
-- **Reasoning is a capability, not a switch.** If a variant disables reasoning for a model whose provider declares support, the panel still says `supported`.
 
 ## Configuration
 
@@ -83,7 +81,6 @@ src/
   core/
     format.ts    Token, percent, duration, cost and rate formatting
     usage.ts     Token totals, context window, pressure, generation rate
-    agents.ts    Subagent derivation and rollup
 test/            Vitest unit tests
 scripts/         Build helpers
 docs/design/     Design references

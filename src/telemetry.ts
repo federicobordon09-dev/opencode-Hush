@@ -19,7 +19,6 @@
 import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
-import { deriveAgentRows, summarizeAgents, type AgentRow, type AgentSummary } from "./core/agents.ts"
 import {
   contextMessage,
   contextPressure,
@@ -57,10 +56,6 @@ export type SessionData = {
   readonly sessionTokens: Accessor<number>
   readonly cost: Accessor<number>
   readonly branch: Accessor<string | undefined>
-  readonly agents: Accessor<readonly AgentRow[]>
-  readonly agentSummary: Accessor<AgentSummary>
-  /** Whether the model declares reasoning support, from provider compatibility metadata. */
-  readonly reasoningSupported: Accessor<boolean | undefined>
   /** True when a collection Hush needs could not be loaded from the host. */
   readonly degraded: Accessor<boolean>
 }
@@ -94,11 +89,16 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
       primed.add(ref.directory)
       // Only the collections Hush renders. The host keeps them live from here
       // on: branch updates and model catalog changes arrive as events.
-      Promise.all([data.location.model.sync(ref), data.location.vcs.sync(ref)]).catch(() => {
-        // Forget the attempt so a later mount can retry instead of staying blind.
-        primed.delete(ref.directory)
-        setDegraded(true)
-      })
+      Promise.all([data.location.model.sync(ref), data.location.vcs.sync(ref)])
+        .then(() => {
+          // A later successful sync clears an earlier partial-data warning.
+          setDegraded(false)
+        })
+        .catch(() => {
+          // Forget the attempt so a later mount can retry instead of staying blind.
+          primed.delete(ref.directory)
+          setDegraded(true)
+        })
     })
   })
 
@@ -140,17 +140,6 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     return id === undefined ? undefined : data.session.root(id)
   })
 
-  const agents = createMemo(() => {
-    const root = rootID()
-    if (root === undefined) return []
-    return deriveAgentRows({
-      sessions: data.session.list(),
-      rootID: root,
-      family: data.session.family(root),
-      statusOf: (id) => data.session.status(id),
-    })
-  })
-
   return {
     startedAt: createMemo(() => {
       const created = session()?.time.created
@@ -177,13 +166,6 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
       return id === undefined ? 0 : data.session.cost(id)
     }),
     branch: createMemo(() => data.location.vcs.info(location())?.branch.current),
-    agents,
-    agentSummary: createMemo(() => summarizeAgents(agents())),
-    reasoningSupported: createMemo(() => {
-      const compatibility = modelInfo()?.compatibility
-      if (compatibility === undefined) return undefined
-      return compatibility.reasoningField !== undefined || compatibility.requireReasoning === true
-    }),
     degraded,
   }
 }
