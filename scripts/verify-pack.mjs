@@ -19,14 +19,18 @@ import { fileURLToPath, pathToFileURL } from "node:url"
  * 4. fail when any shipped dist/src file imports @opencode/plugin at runtime:
  *    the package keeps it as a devDependency, so a value import would crash
  *    the host on load. Type-only imports are erased by the compilers.
- * 5. run the real `Host.resolve` from @opencode/plugin against that install.
+ * 5. fail when any shipped dist file references a React JSX runtime: dist is
+ *    precompiled JavaScript with Solid-transformed JSX, so a "react" or
+ *    "jsx-dev-runtime" fingerprint means the build shipped the wrong transform.
+ * 6. run the real `Host.resolve` from @opencode/plugin against that install.
  *    Package plugins are resolved by name, so both entrypoints must come back
  *    pointing inside the install.
- * 6. import the packaged entrypoints for real and fail when either module has
- *    no default export. dist/index.js re-exports plain TypeScript and runs on
- *    Node; dist/tui.js re-exports a .tsx tree, so it is imported through
- *    vitest, the same loader `pnpm test` uses.
- * 7. fail when the README points at an image with a relative path, which is
+ * 7. import the packaged entrypoints for real with Node and fail when either
+ *    module has no default export. dist/index.js re-exports plain TypeScript
+ *    (Node strips its types); dist/tui.js ships precompiled Solid JSX, so it
+ *    loads on Node with no transpiler — externals resolve against this repo's
+ *    node_modules.
+ * 8. fail when the README points at an image with a relative path, which is
  *    broken once npm renders it.
  */
 
@@ -150,6 +154,24 @@ async function main() {
   }
   console.log(`  imports     no runtime @opencode/plugin import across ${shipped.length} shipped file(s)`)
 
+  // 4b. dist ships precompiled JavaScript: React's JSX runtimes must never
+  //     appear there. A fingerprint means the build regressed to React's
+  //     importer instead of the Solid transform. Word boundaries avoid false
+  //     positives like "reactive" in unrelated identifiers.
+  for (const entry of contents) {
+    if (!/^package\/dist\//.test(entry)) continue
+    if (!/\.(?:m|c)?js$/.test(entry)) continue
+    const source = await readFile(path.join(COPY, entry.slice("package/".length)), "utf8")
+    const fingerprints = []
+    if (/\breact\b/.test(source)) fingerprints.push("react")
+    if (/jsx-dev-runtime/.test(source)) fingerprints.push("jsx-dev-runtime")
+    assert(
+      fingerprints.length === 0,
+      `${entry} ships a React JSX fingerprint: ${fingerprints.join(", ")}`,
+    )
+  }
+  console.log(`  jsx         dist clean of react / jsx-dev-runtime fingerprints`)
+
   // 5. the real resolver
   const { Host } = await import("@opencode/plugin/host")
   const resolved = Host.resolve({ directory: path.join(TEMP, "install"), name: PACKAGE_NAME })
@@ -229,55 +251,34 @@ async function main() {
   )
   console.log(`  import      dist/index.js -> default { id: "${serverReport.id}", setup: function }`)
 
-  // 6b. the TUI entrypoint, imported through the test loader
-  const spec = path.join(COPY, "tui-entry.test.mjs")
-  await writeFile(
-    spec,
-    [
-      'import { expect, it } from "vitest"',
-      "",
-      'it("packaged TUI entrypoint exposes a default plugin", async () => {',
-      '  const module = await import("./dist/tui.js")',
-      '  expect(Object.hasOwn(module, "default")).toBe(true)',
-      '  expect(module.default?.id).toBe("hush")',
-      '  expect(typeof module.default?.setup).toBe("function")',
-      "})",
-      "",
-    ].join("\n"),
-  )
-  // The package ships no tsconfig — the host compiles plugin sources with its
-  // own JSX pipeline. On this Node, the vitest loader's TS config discovery
-  // does not reach the extracted copy (rolldown/oxc stops its search at the
-  // package.json the tarball carries), so without a hint it emits React's JSX
-  // runtime, which this package does not use. Pin the source oxc should import
-  // instead: the same `jsxImportSource` the repo's tsconfig prescribes.
-  const vitestConfig = path.join(TEMP, "vitest.config.mjs")
-  await writeFile(
-    vitestConfig,
-    [
-      'import { defineConfig } from "vitest/config"',
-      "",
-      "export default defineConfig({",
-      '  oxc: { jsx: { runtime: "automatic", importSource: "@opentui/solid" } },',
-      "})",
-      "",
-    ].join("\n"),
-  )
-  let vitestOutput = ""
+  // 6b. the TUI entrypoint: precompiled by the build (babel-preset-solid via
+  //     esbuild-plugin-solid), so plain Node imports it directly from the flat
+  //     copy. The former vitest loader with its ephemeral JSX-pinning config is
+  //     gone on purpose — the shipped artifact must not need a JSX transpiler
+  //     at load time.
+  let tuiReport
   try {
-    vitestOutput = run(
-      `pnpm exec vitest run --config "${slashes(path.relative(ROOT, vitestConfig))}" "${slashes(path.relative(ROOT, spec))}"`,
+    tuiReport = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [helper, pathToFileURL(path.join(COPY, "dist", "tui.js")).href],
+        { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+      ),
     )
   } catch (error) {
     throw new Error(
       `importing the packaged TUI entrypoint failed:\n${error.stdout ?? ""}${error.stderr ?? ""}`,
     )
   }
-  const testsLine = vitestOutput
-    .split(/\r?\n/)
-    .find((line) => line.includes("Tests") || line.includes("Test Files"))
-  assert(testsLine !== undefined, `could not read vitest's result:\n${vitestOutput}`)
-  console.log(`  import      dist/tui.js via vitest -> ${testsLine.trim().replace(/\s+/g, " ")}`)
+  assert(
+    tuiReport.hasDefault,
+    `the packaged TUI entrypoint has no default export (exports: ${tuiReport.keys.join(", ") || "none"})`,
+  )
+  assert(
+    tuiReport.id === "hush" && tuiReport.setup === "function",
+    `the packaged TUI entrypoint is not a plugin: ${JSON.stringify(tuiReport)}`,
+  )
+  console.log(`  import      dist/tui.js -> default { id: "${tuiReport.id}", setup: function }`)
 
   // 7. README images must survive npm, which renders them from the registry
   const readme = await readFile(path.join(PACKED, "README.md"), "utf8")
