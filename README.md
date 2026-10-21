@@ -2,7 +2,7 @@
 
 Minimal telemetry for the [OpenCode](https://opencode.ai) TUI. Quiet while everything is healthy, specific when something needs attention.
 
-![Hush telemetry panel mockup](docs/design/hush-panel-mockup.png)
+![Hush sidebar panel in the OpenCode TUI](https://raw.githubusercontent.com/federicobordon09-dev/opencode-Hush/main/docs/design/hush-panel.png)
 
 > **Status:** v0.1.0 — sidebar telemetry panel. Every figure comes from the plugin context; nothing is estimated, scraped, or fetched from outside the local runtime.
 
@@ -81,19 +81,23 @@ export { default } from "../../../../Desktop/Hush/src/tui.tsx"
 
 ## Development
 
-Requires Node.js 20+ and pnpm.
+Requires Node.js 22.12+ and pnpm.
 
 ```sh
 pnpm install
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm verify:pack
 ```
+
+`verify:pack` packs the tarball, runs the host's real `Host.resolve` against the installed layout, imports both entrypoints and fails when either one loses its default export.
 
 ## Structure
 
 ```
 src/
+  index.ts       Server entrypoint: inert, so the package resolves as a plugin
   tui.tsx        TUI entrypoint: claims slots and releases them on deactivate
   telemetry.ts   Reactive session state: store reads, clock, event subscriptions
   panel.tsx      Presentation: sidebar panel
