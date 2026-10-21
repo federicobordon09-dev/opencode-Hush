@@ -7,11 +7,11 @@
  * host store, and the event stream.
  */
 
-import { Plugin } from "@opencode/plugin/tui"
+import type { Plugin } from "@opencode/plugin/tui"
 
 import { HushPanel } from "./panel.tsx"
 
-export default Plugin.define({
+export default {
   id: "hush",
 
   setup(context) {
@@ -26,4 +26,4 @@ export default Plugin.define({
       for (const claim of claims) claim()
     }
   },
-})
+} satisfies Plugin.Definition

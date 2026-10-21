@@ -14,15 +14,19 @@ import { fileURLToPath, pathToFileURL } from "node:url"
  * 2. assert the tarball carries dist/tui.js and dist/index.js — a clean clone
  *    must pack a dist, not just a src.
  * 3. lay the tarball out the way a host installs a plugin:
- *    <tmp>/install/node_modules/opencode-hush next to a package.json.
- * 4. run the real `Host.resolve` from @opencode/plugin against that install.
+ *    <tmp>/install/node_modules/opencode-hush next to a package.json, plus a
+ *    flat copy of the same bytes outside any node_modules path.
+ * 4. fail when any shipped dist/src file imports @opencode/plugin at runtime:
+ *    the package keeps it as a devDependency, so a value import would crash
+ *    the host on load. Type-only imports are erased by the compilers.
+ * 5. run the real `Host.resolve` from @opencode/plugin against that install.
  *    Package plugins are resolved by name, so both entrypoints must come back
  *    pointing inside the install.
- * 5. import the packaged entrypoints for real and fail when either module has
+ * 6. import the packaged entrypoints for real and fail when either module has
  *    no default export. dist/index.js re-exports plain TypeScript and runs on
  *    Node; dist/tui.js re-exports a .tsx tree, so it is imported through
  *    vitest, the same loader `pnpm test` uses.
- * 6. fail when the README points at an image with a relative path, which is
+ * 7. fail when the README points at an image with a relative path, which is
  *    broken once npm renders it.
  */
 
@@ -44,6 +48,35 @@ function run(command) {
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex")
+}
+
+/**
+ * Line numbers of runtime imports of "@opencode/plugin": value imports,
+ * side-effect imports, dynamic `import()` and `require`. `import type` and
+ * `export type` are erased by the compilers, so they never reach the host and
+ * are allowed; comment-looking lines are skipped.
+ */
+function pluginImportViolations(source) {
+  const violations = []
+  let typeOnlyOpen = false
+  source.split(/\r?\n/).forEach((line, index) => {
+    if (/^\s*(?:\/\/|\/\*|\*)/.test(line)) return
+    if (/^\s*(?:import|export)\s+type\b/.test(line)) {
+      if (!/\bfrom\b/.test(line)) typeOnlyOpen = true
+      return
+    }
+    if (typeOnlyOpen) {
+      if (/\bfrom\b/.test(line)) typeOnlyOpen = false
+      return
+    }
+    const runtime =
+      /\bfrom\s*["']@opencode\/plugin/.test(line) ||
+      /^\s*import\s*["']@opencode\/plugin/.test(line) ||
+      /\bimport\s*\(\s*["']@opencode\/plugin/.test(line) ||
+      /\brequire\s*\(\s*["']@opencode\/plugin/.test(line)
+    if (runtime) violations.push(index + 1)
+  })
+  return violations
 }
 
 async function pack() {
@@ -99,7 +132,25 @@ async function main() {
   await mkdir(COPY, { recursive: true })
   execFileSync("tar", ["-xzf", tarball, "-C", COPY, "--strip-components", "1"])
 
-  // 4. the real resolver
+  // 4. no shipped file may import @opencode/plugin at runtime: the package
+  //    keeps it as a devDependency, so a value import would crash the host on
+  //    load. Type-only imports are erased by the compilers and are fine.
+  const shipped = []
+  for (const entry of contents) {
+    if (!/^package\/(?:dist|src)\//.test(entry)) continue
+    if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(entry)) continue
+    const lines = pluginImportViolations(
+      await readFile(path.join(COPY, entry.slice("package/".length)), "utf8"),
+    )
+    assert(
+      lines.length === 0,
+      `runtime @opencode/plugin import in ${entry} on line(s) ${lines.join(", ")}`,
+    )
+    shipped.push(entry)
+  }
+  console.log(`  imports     no runtime @opencode/plugin import across ${shipped.length} shipped file(s)`)
+
+  // 5. the real resolver
   const { Host } = await import("@opencode/plugin/host")
   const resolved = Host.resolve({ directory: path.join(TEMP, "install"), name: PACKAGE_NAME })
   assert(
@@ -133,7 +184,7 @@ async function main() {
     assert(sha256(installed) === sha256(copy), `${file} differs between the two extractions`)
   }
 
-  // 5a. the server entrypoint, imported by Node
+  // 6a. the server entrypoint, imported by Node
   const helper = path.join(TEMP, "import-entry.mjs")
   await writeFile(
     helper,
@@ -178,7 +229,7 @@ async function main() {
   )
   console.log(`  import      dist/index.js -> default { id: "${serverReport.id}", setup: function }`)
 
-  // 5b. the TUI entrypoint, imported through the test loader
+  // 6b. the TUI entrypoint, imported through the test loader
   const spec = path.join(COPY, "tui-entry.test.mjs")
   await writeFile(
     spec,
@@ -195,12 +246,28 @@ async function main() {
     ].join("\n"),
   )
   // The package ships no tsconfig — the host compiles plugin sources with its
-  // own JSX pipeline, and this repo's tsconfig is what the test loader walks up
-  // to from the extracted copy, so the import goes through the real Solid /
-  // OpenTUI JSX runtime instead of the React one.
+  // own JSX pipeline. On this Node, the vitest loader's TS config discovery
+  // does not reach the extracted copy (rolldown/oxc stops its search at the
+  // package.json the tarball carries), so without a hint it emits React's JSX
+  // runtime, which this package does not use. Pin the source oxc should import
+  // instead: the same `jsxImportSource` the repo's tsconfig prescribes.
+  const vitestConfig = path.join(TEMP, "vitest.config.mjs")
+  await writeFile(
+    vitestConfig,
+    [
+      'import { defineConfig } from "vitest/config"',
+      "",
+      "export default defineConfig({",
+      '  oxc: { jsx: { runtime: "automatic", importSource: "@opentui/solid" } },',
+      "})",
+      "",
+    ].join("\n"),
+  )
   let vitestOutput = ""
   try {
-    vitestOutput = run(`pnpm exec vitest run "${slashes(path.relative(ROOT, spec))}"`)
+    vitestOutput = run(
+      `pnpm exec vitest run --config "${slashes(path.relative(ROOT, vitestConfig))}" "${slashes(path.relative(ROOT, spec))}"`,
+    )
   } catch (error) {
     throw new Error(
       `importing the packaged TUI entrypoint failed:\n${error.stdout ?? ""}${error.stderr ?? ""}`,
@@ -212,7 +279,7 @@ async function main() {
   assert(testsLine !== undefined, `could not read vitest's result:\n${vitestOutput}`)
   console.log(`  import      dist/tui.js via vitest -> ${testsLine.trim().replace(/\s+/g, " ")}`)
 
-  // 6. README images must survive npm, which renders them from the registry
+  // 7. README images must survive npm, which renders them from the registry
   const readme = await readFile(path.join(PACKED, "README.md"), "utf8")
   const images = [...readme.matchAll(/!\[[^\]]*\]\(([^)\s]+)/g)].map((match) => match[1])
   const relative = images.filter((source) => !/^(https?:)?\/\//.test(source))

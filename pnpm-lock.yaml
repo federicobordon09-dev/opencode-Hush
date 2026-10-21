@@ -165,11 +165,10 @@ settings:
 importers:
 
   .:
-    dependencies:
+    devDependencies:
       '@opencode/plugin':
         specifier: ^2.0.32
         version: 2.0.32(@opencode/theme@2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentelemetry/semantic-conventions@1.43.0)(@opentui/core@0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.6.6(solid-js@1.9.17)(typescript@7.0.2)(web-tree-sitter@0.25.10))(redis@6.3.0(@opentelemetry/api@1.9.0))(solid-js@1.9.17)
-    devDependencies:
       '@opencode/theme':
         specifier: 2.0.32
         version: 2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10)

@@ -49,15 +49,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "@opencode/plugin": "^2.0.32"
-  },
   "peerDependencies": {
     "@opentui/core": ">=0.5.17 <0.7",
     "@opentui/solid": ">=0.5.17 <0.7",
     "solid-js": ">=1.9.0"
   },
   "devDependencies": {
+    "@opencode/plugin": "^2.0.32",
     "@opencode/theme": "2.0.32",
     "@opentui/core": "^0.6.6",
     "@opentui/solid": "^0.6.6",
