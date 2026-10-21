@@ -29,6 +29,7 @@
 import { Show, type JSX } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
+import { barFill } from "./core/bar.ts"
 import { formatCost, formatDuration, formatTokens } from "./core/format.ts"
 import type { Pressure } from "./core/usage.ts"
 import { createTelemetry } from "./telemetry.ts"
@@ -234,18 +235,19 @@ function Divider(props: { readonly theme: Theme }) {
 }
 
 function Bar(props: { readonly theme: Theme; readonly ratio: number; readonly accent: Color }) {
+  const fill = barFill(props.ratio)
   return (
     <box flexDirection="row" width="100%" height={1}>
-      <box height={1} width={percentWidth(props.ratio)} border={["top"]} borderColor={props.accent} />
+      <box
+        height={1}
+        width={fill.width}
+        minWidth={fill.minWidth}
+        border={["top"]}
+        borderColor={props.accent}
+      />
       <box height={1} flexGrow={1} border={["top"]} borderColor={props.theme.text.faint} />
     </box>
   )
-}
-
-/** Clamped for safety; 0 stays a full faint track and 100 fills it completely. */
-function percentWidth(ratio: number): `${number}%` {
-  const clamped = Math.min(100, Math.max(0, ratio * 100))
-  return `${clamped}%`
 }
 
 function pressureColor(theme: Theme, pressure: Pressure): Color {
