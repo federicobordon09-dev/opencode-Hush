@@ -19,10 +19,12 @@
 import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
+import type { SubagentSnapshot } from "./core/subagents.ts"
 import {
   contextMessage,
   contextPressure,
   contextUsage,
+  processedTokens,
   sumTokenTotals,
   type ContextUsage,
   type ConversationMessage,
@@ -55,6 +57,8 @@ export type SessionData = {
   readonly cachedTokens: Accessor<number>
   readonly cost: Accessor<number>
   readonly branch: Accessor<string | undefined>
+  /** One snapshot per subagent session in the family, mapped out of the host store. */
+  readonly subagents: Accessor<readonly SubagentSnapshot[]>
   /** True when a collection Hush needs could not be loaded from the host. */
   readonly degraded: Accessor<boolean>
 }
@@ -86,7 +90,7 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
       primed.add(ref.directory)
       // Only the collections Hush renders. The host keeps them live from here
       // on: branch updates and model catalog changes arrive as events.
-      Promise.all([data.location.model.sync(ref), data.location.vcs.sync(ref)])
+      Promise.all([data.location.model.sync(ref), data.location.vcs.sync(ref), data.location.agent.sync(ref)])
         .then(() => {
           // A later successful sync clears an earlier partial-data warning.
           setDegraded(false)
@@ -155,19 +159,60 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     return sumTokenTotals(usages)
   })
 
+  /** Friendly model name from the host catalog, falling back to the raw id. */
+  const modelName = (ref: ModelRefView | undefined): string | undefined => {
+    if (ref === undefined) return undefined
+    const match = data.location.model
+      .list(location())
+      ?.find((candidate) => candidate.modelID === ref.id && candidate.providerID === ref.providerID)
+    return match?.name ?? ref.id
+  }
+
+  /** Agent display name from the host catalog, falling back to the raw agent id. */
+  const agentName = (id: string | undefined): string | undefined => {
+    if (id === undefined) return undefined
+    const match = data.location.agent
+      .list(location())
+      ?.find((candidate) => candidate.id === id)
+    return match?.name ?? id
+  }
+
+  /**
+   * One snapshot per subagent in the session family: every session the host
+   * groups under the root that reports a `parentID`. The reads go through the
+   * same live store as the rest of the panel — new, updated and finished
+   * subagents arrive as host events, never as polls.
+   */
+  const subagents = createMemo<SubagentSnapshot[]>(() => {
+    const root = rootID()
+    if (root === undefined) return []
+    const snapshots: SubagentSnapshot[] = []
+    for (const id of data.session.family(root)) {
+      const info = data.session.get(id)
+      if (info === undefined || info.parentID === undefined) continue
+      snapshots.push({
+        id: info.id,
+        agent: info.agent,
+        agentName: agentName(info.agent),
+        model: info.model === undefined ? undefined : modelName({ providerID: info.model.providerID, id: info.model.id }),
+        title: info.title,
+        status: data.session.status(info.id),
+        outcome: info.outcome,
+        tokens: processedTokens(info.tokens),
+        createdAt: info.time?.created,
+        endedAt: info.time?.idle ?? info.time?.updated,
+      })
+    }
+    return snapshots
+  })
+
   return {
     startedAt: createMemo(() => {
       const created = session()?.time.created
       return created !== undefined && Number.isFinite(created) && created > 0 ? created : undefined
     }),
     modelRef,
-    modelName: (ref) => {
-      if (ref === undefined) return undefined
-      const match = data.location.model
-        .list(location())
-        ?.find((candidate) => candidate.modelID === ref.id && candidate.providerID === ref.providerID)
-      return match?.name ?? ref.id
-    },
+    modelName,
     usage,
     pressure: createMemo(() => contextPressure(usage()?.ratio)),
     sessionTokens: createMemo(() => familyTokens()?.tokens ?? 0),
@@ -179,6 +224,7 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
       return id === undefined ? 0 : data.session.cost(id)
     }),
     branch: createMemo(() => data.location.vcs.info(location())?.branch.current),
+    subagents,
     degraded,
   }
 }
