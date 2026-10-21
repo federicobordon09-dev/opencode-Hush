@@ -1,5 +1,6 @@
 node_modules/
 dist/
+verify-pack-tmp/
 *.log
 *.tsbuildinfo
 .DS_Store

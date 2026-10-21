@@ -1,7 +1,7 @@
 {
   "name": "opencode-hush",
   "version": "0.1.0",
-  "description": "Minimal adaptive telemetry for the OpenCode TUI - silent by default, loud only when it matters",
+  "description": "Sidebar telemetry panel for the OpenCode TUI: context pressure, Git branch and family session metrics the host does not draw",
   "type": "module",
   "license": "MIT",
   "author": "Federico Bordon",
@@ -23,7 +23,9 @@
     "context",
     "minimal"
   ],
+  "main": "./dist/index.js",
   "exports": {
+    ".": "./dist/index.js",
     "./tui": "./dist/tui.js"
   },
   "files": [
@@ -36,7 +38,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "node scripts/build-entry.mjs",
+    "verify:pack": "node scripts/verify-pack.mjs",
+    "prepack": "pnpm build",
     "prepublishOnly": "pnpm build && pnpm typecheck && pnpm test"
+  },
+  "engines": {
+    "node": ">=22.12"
   },
   "packageManager": "pnpm@12.14.0",
   "publishConfig": {
@@ -46,8 +53,8 @@
     "@opencode/plugin": "^2.0.32"
   },
   "peerDependencies": {
-    "@opentui/core": ">=0.5.17",
-    "@opentui/solid": ">=0.5.17",
+    "@opentui/core": ">=0.5.17 <0.7",
+    "@opentui/solid": ">=0.5.17 <0.7",
     "solid-js": ">=1.9.0"
   },
   "devDependencies": {
