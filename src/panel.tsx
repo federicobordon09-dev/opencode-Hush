@@ -7,7 +7,17 @@
  *
  * Visual rules, from the design reference:
  * - Compact single-line rows, no cards, borders, or decorative elements.
- * - Theme tokens only, never hardcoded colors.
+ * - Theme tokens only, never hardcoded colors. The single permitted fallback is
+ *   `accentColor`: when a host theme lacks the semantic accent hue, the accent
+ *   degrades to `theme.text.base` instead of a hex literal.
+ * - Values read in the theme's primary ink (`text.base`), labels in its
+ *   secondary ink (`text.muted`), purely decorative strokes in `text.faint`.
+ *   The accent (`hue.accent[200]`) is the hue the host itself uses for the
+ *   prompt, and the `[200]` step sits at the ink end in both theme modes, so it
+ *   reads on light and dark backgrounds alike.
+ * - The Context bar is drawn from border glyphs, never from cell backgrounds:
+ *   background fills render as a solid block and stay at fixed contrast,
+ *   regardless of the theme's surface colors.
  * - State is never conveyed by color alone: dots and glyphs differ per state and
  *   the status word is spelled out next to the ones that matter.
  * - No duplicated host data: MCP, subagents and the prompt footer already live
@@ -29,6 +39,17 @@ type Color = Theme["text"]["base"]
 
 /** Width of the label column in the summary block. Fits a dot plus the longest label. */
 const LABEL_WIDTH = 12
+
+/**
+ * One accent hue for the whole panel: the semantic accent at step 200, the step
+ * the host itself paints the prompt with, which stays readable in both theme
+ * modes because hue ramps invert per mode. Fallback (single, documented): when
+ * a host theme omits the semantic accent hue, the strongest ink takes over —
+ * no hex literal is introduced.
+ */
+function accentColor(theme: Theme): Color {
+  return theme.hue.accent?.[200] ?? theme.text.base
+}
 
 export function HushPanel(props: { readonly context: Context; readonly sessionID: string }) {
   const context = props.context
@@ -90,13 +111,11 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     readonly label: string
     readonly color: Color
     readonly children: JSX.Element
-    /** Secondary rows step back one tone so the primary metrics stay readable. */
-    readonly dim?: boolean
   }) => (
     <box flexDirection="row" gap={1}>
       <box width={LABEL_WIDTH} flexShrink={0} flexDirection="row">
         <text fg={row.color}>{"● "}</text>
-        <text fg={row.dim ? theme.text.faint : theme.text.muted} wrapMode="none">
+        <text fg={theme.text.muted} wrapMode="none">
           {row.label}
         </text>
       </box>
@@ -119,13 +138,13 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
               <box flexDirection="row">
                 <text fg={theme.text.base}>{formatTokens(value())}</text>
                 <Show when={limitText()}>
-                  {(text) => <text fg={theme.text.faint}>{text()}</text>}
+                  {(text) => <text fg={theme.text.muted}>{text()}</text>}
                 </Show>
-                <text fg={theme.text.faint}> tokens</text>
+                <text fg={theme.text.muted}> tokens</text>
               </box>
               <Show when={ratio()}>
                 {(value) => (
-                  <Bar theme={theme} ratio={value()} color={pressureColor(theme, view.pressure())} />
+                  <Bar theme={theme} ratio={value()} accent={accentColor(theme)} />
                 )}
               </Show>
             </box>
@@ -138,7 +157,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
               <text fg={theme.text.muted}>Git</text>
               <box flexDirection="row">
                 <text fg={theme.text.feedback.success.base}>{"● "}</text>
-                <text fg={theme.text.feedback.success.base} wrapMode="none" truncate>
+                <text fg={theme.text.base} wrapMode="none" truncate>
                   {branch()}
                 </text>
               </box>
@@ -168,14 +187,14 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Show when={tokensText()}>
               {(value) => (
                 <Row label="Tokens" color={dot.tokens}>
-                  <text fg={theme.text.muted}>{value()}</text>
+                  <text fg={theme.text.base}>{value()}</text>
                 </Row>
               )}
             </Show>
             <Show when={cachedText()}>
               {(value) => (
-                <Row label="Cached" color={dot.cached} dim>
-                  <text fg={theme.text.faint}>{value()}</text>
+                <Row label="Cached" color={dot.cached}>
+                  <text fg={theme.text.base}>{value()}</text>
                 </Row>
               )}
             </Show>
@@ -195,7 +214,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Show when={reasoningText()}>
               {(value) => (
                 <Row label="Reasoning" color={dot.reasoning}>
-                  <text fg={theme.text.feedback.info.base}>{value()}</text>
+                  <text fg={theme.text.base}>{value()}</text>
                 </Row>
               )}
             </Show>
@@ -214,16 +233,16 @@ function Divider(props: { readonly theme: Theme }) {
   return <box height={1} width="100%" border={["top"]} borderColor={props.theme.border.base} />
 }
 
-function Bar(props: { readonly theme: Theme; readonly ratio: number; readonly color: Color }) {
+function Bar(props: { readonly theme: Theme; readonly ratio: number; readonly accent: Color }) {
   return (
-    <box flexDirection="row" height={1} width="100%">
-      <box height={1} width={percentWidth(props.ratio)} backgroundColor={props.color} />
-      <box height={1} flexGrow={1} backgroundColor={props.theme.background.raised.base} />
+    <box flexDirection="row" width="100%" height={1}>
+      <box height={1} width={percentWidth(props.ratio)} border={["top"]} borderColor={props.accent} />
+      <box height={1} flexGrow={1} border={["top"]} borderColor={props.theme.text.faint} />
     </box>
   )
 }
 
-/** A bar narrower than one cell would otherwise vanish or overflow its track. */
+/** Clamped for safety; 0 stays a full faint track and 100 fills it completely. */
 function percentWidth(ratio: number): `${number}%` {
   const clamped = Math.min(100, Math.max(0, ratio * 100))
   return `${clamped}%`
