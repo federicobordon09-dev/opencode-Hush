@@ -5,6 +5,8 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
+import { htmlImageSources, hasImageSyntax, isAbsoluteImageUrl, markdownImageSources } from "./readme-images.ts"
+
 /**
  * verify:pack — proves the *published artifact* works, not the checkout.
  *
@@ -30,8 +32,9 @@ import { fileURLToPath, pathToFileURL } from "node:url"
  *    (Node strips its types); dist/tui.js ships precompiled Solid JSX, so it
  *    loads on Node with no transpiler — externals resolve against this repo's
  *    node_modules.
- * 8. fail when the README points at an image with a relative path, which is
- *    broken once npm renders it.
+ * 8. fail when the README points at an image (a Markdown `![]()` line or an
+ *    HTML `<img src="…">` tag) whose source is not absolute: relative paths
+ *    are broken once npm renders the README from the registry.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
@@ -280,12 +283,22 @@ async function main() {
   )
   console.log(`  import      dist/tui.js -> default { id: "${tuiReport.id}", setup: function }`)
 
-  // 7. README images must survive npm, which renders them from the registry
+  // 7. README images must survive npm, which renders them from the registry.
+  //    Both syntaxes count: Markdown ![](…) lines and HTML <img> tags.
   const readme = await readFile(path.join(PACKED, "README.md"), "utf8")
-  const images = [...readme.matchAll(/!\[[^\]]*\]\(([^)\s]+)/g)].map((match) => match[1])
-  const relative = images.filter((source) => !/^(https?:)?\/\//.test(source))
+  const markdownImages = markdownImageSources(readme)
+  const htmlImages = htmlImageSources(readme)
+  const images = [...markdownImages, ...htmlImages]
+  const relative = images.filter((source) => !isAbsoluteImageUrl(source))
   assert(relative.length === 0, `README images must be absolute for npm: ${relative.join(", ")}`)
-  console.log(`  readme      ${images.length} image(s), absolute sources only`)
+  // The check has to prove it reflected on the README's actual images: visible
+  // image syntax with nothing extracted means the scan rotted, not that the
+  // README is clean.
+  assert(
+    images.length > 0 || !hasImageSyntax(readme),
+    "the README seems to carry images, but none were extracted",
+  )
+  console.log(`  readme      ${images.length} image(s) (${markdownImages.length} markdown, ${htmlImages.length} <img>), absolute sources only`)
 }
 
 let failure
