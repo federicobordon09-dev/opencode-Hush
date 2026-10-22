@@ -38,12 +38,12 @@ The panel paints exclusively with the host theme tokens (text, hue and categoric
 
 ## Requirements
 
-- Node.js 22.12+
+- Node.js 22.18+
 - Tested with OpenCode 2.1.x
 
 ## Development
 
-Requires Node.js 22.12+ and pnpm.
+Requires Node.js 22.18+ and pnpm.
 
 ```sh
 pnpm install
@@ -53,6 +53,10 @@ pnpm verify:pack
 ```
 
 `verify:pack` packs the tarball, runs the host's real `Host.resolve` against the installed layout, imports both entrypoints and fails when either one loses its default export — or when the README ships an image that is not absolute.
+
+Node 22.18 is the floor because `dist/index.js` re-exports TypeScript and the host loads it with Node's own type stripping, which is unflagged from that release on.
+
+CI runs the typecheck, the tests and the build on the minimum supported Node and on the current LTS, and verifies the packed artifact on a job of its own.
 
 ## Structure
 
