@@ -26,20 +26,11 @@
  *   find the row without reading it first.
  */
 
-import { For, Show, createMemo, type Accessor, type JSX } from "solid-js"
+import { Show, createMemo, type Accessor, type JSX } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
 import { barFill } from "./core/bar.ts"
 import { formatCost, formatDuration, formatLimit, formatTokens } from "./core/format.ts"
-import {
-  SUBAGENT_TEXT_WIDTH,
-  ellipsize,
-  subagentDurationMs,
-  subagentsView,
-  type SubagentRow,
-  type SubagentState,
-  type SubagentsView,
-} from "./core/subagents.ts"
 import type { Pressure } from "./core/usage.ts"
 import { createTelemetry } from "./telemetry.ts"
 
@@ -88,9 +79,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     return value > 0 ? formatCost(value) : undefined
   }
   const reasoningText = () => (view.reasoning() ? "active" : undefined)
-  const subagentView = createMemo(() => subagentsView(view.subagents()))
   const empty = () =>
-    view.subagents().length === 0 &&
     ratio() === undefined &&
     view.branch() === undefined &&
     modelText() === undefined &&
@@ -100,14 +89,14 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     elapsedText() === undefined &&
     reasoningText() === undefined
 
-  /** One hue per metric. The last three are shades of the first two, so every row stays distinct. */
+  /** One hue per metric — each from a distinct categorical index so no two rows share a hue. */
   const dot = {
     model: categoricalColor(theme, 0),
-    cost: categoricalColor(theme, 3),
+    cost: categoricalColor(theme, 2),
     tokens: categoricalColor(theme, 1),
-    cached: theme.decrease(categoricalColor(theme, 1), 2),
-    elapsed: theme.increase(categoricalColor(theme, 0), 2),
-    reasoning: theme.increase(categoricalColor(theme, 1), 2),
+    cached: categoricalColor(theme, 3),
+    age: categoricalColor(theme, 4),
+    reasoning: categoricalColor(theme, 5),
   }
 
   /**
@@ -208,7 +197,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Divider theme={theme} />
             <Show when={elapsedText()}>
               {(value) => (
-                <Row label="Elapsed" color={dot.elapsed}>
+                <Row label="Age" color={dot.age}>
                   <text fg={theme.text.base}>{value()}</text>
                 </Row>
               )}
@@ -221,10 +210,6 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
               )}
             </Show>
           </box>
-        </Show>
-
-        <Show when={subagentView().summary.total > 0}>
-          <SubagentsSection theme={theme} view={subagentView()} now={view.now} />
         </Show>
       </Show>
 
@@ -259,126 +244,6 @@ function pressureColor(theme: Theme, pressure: Pressure): Color {
   if (pressure === "critical") return theme.text.feedback.error.base
   if (pressure === "warn") return theme.text.feedback.warning.base
   return theme.text.feedback.success.base
-}
-
-/**
- * The feedback hues the host itself uses to flag states: its own warning color
- * says "still working", its success and error colors say how a run ended. A
- * subagent that neither runs nor finished gets the muted ink, not a guess.
- */
-function subagentStateColor(theme: Theme, state: SubagentState): Color {
-  switch (state) {
-    case "running":
-      return theme.text.feedback.warning.base
-    case "done":
-      return theme.text.feedback.success.base
-    case "error":
-      return theme.text.feedback.error.base
-    case "stopped":
-      return theme.text.muted
-  }
-}
-
-/**
- * The Subagents section: one compact entry per subagent the session launched,
- * running ones first. The header carries the total on the left and the state
- * tally on the right; zero tallies drop out so only live information prints.
- */
-function SubagentsSection(props: {
-  readonly theme: Theme
-  readonly view: SubagentsView
-  readonly now: Accessor<number>
-}) {
-  const theme = props.theme
-
-  /** Right-hand tally, in state colors, zero buckets omitted. */
-  const segments = (): JSX.Element[] => {
-    const parts: JSX.Element[] = []
-    const push = (count: number, label: string, color: Color) => {
-      if (count <= 0) return
-      if (parts.length > 0) parts.push(<text fg={theme.text.faint}>{" · "}</text>)
-      parts.push(<text fg={color}>{`${count} ${label}`}</text>)
-    }
-    const summary = props.view.summary
-    push(summary.running, "run", subagentStateColor(theme, "running"))
-    push(summary.done, "done", subagentStateColor(theme, "done"))
-    push(summary.error, "err", subagentStateColor(theme, "error"))
-    push(summary.stopped, "stopped", subagentStateColor(theme, "stopped"))
-    return parts
-  }
-
-  return (
-    <box flexDirection="column" marginTop={1}>
-      <Divider theme={theme} />
-      <box flexDirection="row" gap={1}>
-        <text fg={theme.text.muted}>Subagents</text>
-        <text fg={theme.text.base}>{String(props.view.summary.total)}</text>
-        <box flexGrow={1} />
-        <box flexDirection="row" flexShrink={0}>{segments()}</box>
-      </box>
-      <For each={props.view.rows}>
-        {(row) => <SubagentEntry theme={theme} row={row} now={props.now} />}
-      </For>
-      <Show when={props.view.summary.overflow > 0}>
-        <text fg={theme.text.faint}>{`+${props.view.summary.overflow} more`}</text>
-      </Show>
-    </box>
-  )
-}
-
-/**
- * One subagent: state dot, agent name, model to the right, then the task text
- * and the elapsed-time-and-tokens line in the faint ink. Every line carries a
- * layout truncation as backstop; the description is pre-cut by the core to the
- * design width so the ellipsis is ours, not the layout's.
- */
-function SubagentEntry(props: {
-  readonly theme: Theme
-  readonly row: SubagentRow
-  readonly now: Accessor<number>
-}) {
-  const theme = props.theme
-  const color = () => subagentStateColor(theme, props.row.state)
-  const descriptionText = () => {
-    const text = props.row.description
-    return text === undefined ? undefined : ellipsize(text, SUBAGENT_TEXT_WIDTH)
-  }
-  const metaText = () => {
-    const parts: string[] = []
-    const duration = subagentDurationMs(props.row, props.now())
-    if (duration !== undefined) parts.push(formatDuration(duration))
-    if (props.row.tokens !== undefined && props.row.tokens > 0) parts.push(`${formatTokens(props.row.tokens)} tok`)
-    return parts.length === 0 ? undefined : parts.join(" · ")
-  }
-  return (
-    <box flexDirection="column">
-      <box flexDirection="row" gap={1}>
-        <text fg={color()}>{"● "}</text>
-        <box flexGrow={1} flexShrink={1} minWidth={0} flexDirection="row">
-          <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
-            {props.row.name}
-          </text>
-        </box>
-        <Show when={props.row.model !== undefined}>
-          {(model) => <text fg={theme.text.muted} flexShrink={0}>{model()}</text>}
-        </Show>
-      </box>
-      <Show when={descriptionText()}>
-        {(text) => (
-          <text fg={theme.text.faint} wrapMode="none" truncate>
-            {`  ${text()}`}
-          </text>
-        )}
-      </Show>
-      <Show when={metaText()}>
-        {(text) => (
-          <text fg={theme.text.faint} wrapMode="none" truncate>
-            {`  ${text()}`}
-          </text>
-        )}
-      </Show>
-    </box>
-  )
 }
 
 /**
