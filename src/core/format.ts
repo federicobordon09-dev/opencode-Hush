@@ -22,6 +22,12 @@ function trimZero(value: string): string {
   return value.endsWith(".0") ? value.slice(0, -2) : value
 }
 
+/** Formats a model's context limit the way Hush renders it: `200K max`. Undefined without a usable limit. */
+export function formatLimit(limit: number | undefined): string | undefined {
+  if (limit === undefined || !Number.isFinite(limit) || limit <= 0) return undefined
+  return `${formatTokens(limit)} max`
+}
+
 /** Formats a 0..1 ratio as a whole percentage, clamped to [0, 100]. */
 export function formatPercent(ratio: number): string {
   if (!Number.isFinite(ratio)) return "0%"

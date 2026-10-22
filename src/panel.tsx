@@ -30,7 +30,7 @@ import { For, Show, createMemo, type Accessor, type JSX } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
 import { barFill } from "./core/bar.ts"
-import { formatCost, formatDuration, formatTokens } from "./core/format.ts"
+import { formatCost, formatDuration, formatLimit, formatTokens } from "./core/format.ts"
 import {
   SUBAGENT_TEXT_WIDTH,
   ellipsize,
@@ -66,14 +66,10 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   const theme = context.theme
   const view = createTelemetry(context, () => props.sessionID)
 
-  const used = () => view.usage()?.used
   const ratio = () => view.usage()?.ratio
   const contextColor = () =>
     ratio() === undefined ? theme.text.faint : pressureColor(theme, view.pressure())
-  const limitText = () => {
-    const limit = view.usage()?.limit
-    return limit === undefined ? undefined : ` / ${formatTokens(limit)}`
-  }
+  const limitText = () => formatLimit(view.usage()?.limit)
   const modelText = () => view.modelName(view.modelRef())
   const elapsedText = () => {
     const value = view.elapsed()
@@ -95,7 +91,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   const subagentView = createMemo(() => subagentsView(view.subagents()))
   const empty = () =>
     view.subagents().length === 0 &&
-    used() === undefined &&
+    ratio() === undefined &&
     view.branch() === undefined &&
     modelText() === undefined &&
     costText() === undefined &&
@@ -140,24 +136,18 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   return (
     <box flexDirection="column">
       <Show when={!empty()} fallback={<text fg={theme.text.faint}>hush</text>}>
-        <Show when={used()}>
+        {/* The host already labels this block and shows the exact token count
+            and percentage; Hush adds only what it does not draw: the pressure
+            dot, the compact usage bar and the window limit. */}
+        <Show when={ratio()}>
           {(value) => (
-            <box flexDirection="column" marginTop={1}>
-              <box flexDirection="row">
-                <text fg={contextColor()}>{"● "}</text>
-                <text fg={theme.text.muted}>Context</text>
+            <box marginTop={1} flexDirection="row" gap={1}>
+              <text fg={contextColor()} flexShrink={0}>{"● "}</text>
+              <box flexGrow={1} minWidth={0}>
+                <Bar theme={theme} ratio={value()} accent={accentColor(theme)} />
               </box>
-              <box flexDirection="row">
-                <text fg={theme.text.base}>{formatTokens(value())}</text>
-                <Show when={limitText()}>
-                  {(text) => <text fg={theme.text.muted}>{text()}</text>}
-                </Show>
-                <text fg={theme.text.muted}> tokens</text>
-              </box>
-              <Show when={ratio()}>
-                {(value) => (
-                  <Bar theme={theme} ratio={value()} accent={accentColor(theme)} />
-                )}
+              <Show when={limitText()}>
+                {(text) => <text fg={theme.text.muted}>{text()}</text>}
               </Show>
             </box>
           )}

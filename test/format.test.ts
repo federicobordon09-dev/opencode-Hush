@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { formatCost, formatDuration, formatPercent, formatTokens } from "../src/core/format.ts"
+import { formatCost, formatDuration, formatLimit, formatPercent, formatTokens } from "../src/core/format.ts"
 
 describe("formatTokens", () => {
   it("renders small counts as-is", () => {
@@ -30,6 +30,26 @@ describe("formatTokens", () => {
     expect(formatTokens(Number.NaN)).toBe("0")
     expect(formatTokens(Number.POSITIVE_INFINITY)).toBe("0")
     expect(formatTokens(-5)).toBe("0")
+  })
+})
+
+describe("formatLimit", () => {
+  it("states the window limit compactly", () => {
+    expect(formatLimit(200_000)).toBe("200K max")
+    expect(formatLimit(71_400)).toBe("71.4K max")
+    expect(formatLimit(1_000_000)).toBe("1M max")
+  })
+
+  it("keeps small limits plain", () => {
+    expect(formatLimit(850)).toBe("850 max")
+    expect(formatLimit(999_999)).toBe("1M max")
+  })
+
+  it("stays undefined without a usable limit", () => {
+    expect(formatLimit(undefined)).toBeUndefined()
+    expect(formatLimit(0)).toBeUndefined()
+    expect(formatLimit(-200_000)).toBeUndefined()
+    expect(formatLimit(Number.NaN)).toBeUndefined()
   })
 })
 
