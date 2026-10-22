@@ -4,7 +4,7 @@
   "description": "Sidebar telemetry panel for the OpenCode TUI: context pressure, Git branch and family session metrics the host does not draw",
   "type": "module",
   "license": "MIT",
-  "author": "Federico Bordon",
+  "author": "Federico Bordón",
   "homepage": "https://github.com/federicobordon09-dev/opencode-Hush#readme",
   "repository": {
     "type": "git",
@@ -43,7 +43,7 @@
     "prepublishOnly": "pnpm build && pnpm typecheck && pnpm test"
   },
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.18.0"
   },
   "packageManager": "pnpm@12.14.0",
   "publishConfig": {
