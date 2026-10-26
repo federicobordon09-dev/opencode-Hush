@@ -30,6 +30,10 @@ Restart OpenCode afterwards. The command prints no progress, and the first load 
 
 Sections with no data render nothing. A missing known limit collapses the section: the host already shows the exact token count, so the row would only repeat it.
 
+## Commands
+
+- **Check for updates** — `Hush: check for updates` in the command palette, or `/hush-update` in the prompt. Hush asks the host's plugin API whether npm has a newer release and, on confirmation, installs it through the same API. The new code loads the next time OpenCode starts.
+
 - **Context ≠ session total.** Context is what the current window holds, computed with the host's own usage algorithm. The cumulative figures are labelled `Tokens` and `Cached`, so the two are never mixed.
 - **Cost, Tokens and Cached** describe the same scope: the root session's family, so subagent work is counted once, and cached reads get their own dim row instead of inflating `Tokens`.
 - **Subagents** covers every session the host groups under the root one (those with a `parentID`), capped at six with `+N more` for the overflow. Running beats a lingering terminal outcome; a session that neither runs nor finished reads as `stopped`, never as a guessed `done`. Durations tick while a subagent runs and freeze when the host marks it ended.
@@ -65,13 +69,15 @@ CI runs the typecheck, the tests and the build on the minimum supported Node and
 ```
 src/
   index.ts       Server entrypoint: inert, so the package resolves as a plugin
-  tui.tsx        TUI entrypoint: claims slots and releases them on deactivate
+  tui.tsx        TUI entrypoint: claims slots and registers commands, released on deactivate
+  commands.ts    Palette and slash commands, including the host-driven update check
   telemetry.ts   Reactive session state: store reads, clock, event subscriptions
   panel.tsx      Presentation: sidebar panel
   core/
     bar.ts       Width contract for the context bar's fill
     format.ts    Token, percent, duration and cost formatting
     subagents.ts  Subagent rows: states, names, durations, summary
+    update.ts    Classifies the host's plugin list into an update status
     usage.ts     Token totals, context window, pressure
 test/            Vitest unit tests
 scripts/         Build helpers

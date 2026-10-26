@@ -9,12 +9,15 @@
 
 import type { Plugin } from "@opencode/plugin/tui"
 
+import { registerCommands } from "./commands.ts"
 import { HushPanel } from "./panel.tsx"
 
 export default {
   id: "hush",
 
   setup(context) {
+    registerCommands(context)
+
     const claims: Array<() => void> = [
       context.ui.slot({
         append: "sidebar.content",
