@@ -21,7 +21,7 @@ Restart OpenCode afterwards. The first load can take close to a minute while the
 
 ## What it shows
 
-- **Context** — pressure bar and model limit (from the last assistant message carrying usage; limit from `ModelInfo.limit.context`).
+- **Context** — pressure bar and remaining context percentage (from the last assistant message carrying usage; limit from `ModelInfo.limit.context`).
 - **Git** — current branch (`data.location.vcs.info()`). Only shown when OpenCode runs inside a git repository.
 - **Meta** — model, family cost, family tokens, cached tokens, elapsed time, active reasoning.
 

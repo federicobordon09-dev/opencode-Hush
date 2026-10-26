@@ -35,6 +35,19 @@ export function formatPercent(ratio: number): string {
   return `${Math.round(clamped * 100)}%`
 }
 
+/**
+ * Formats the context still free as a percentage of the window: `64% left`.
+ *
+ * Takes the consumed ratio (used / limit) and reports what remains, clamped
+ * to [0, 100]. Undefined for a missing or non-finite ratio, so a panel with
+ * no usable measurement renders no label instead of a misleading number.
+ */
+export function formatRemaining(ratio: number | undefined): string | undefined {
+  if (ratio === undefined || !Number.isFinite(ratio)) return undefined
+  const remaining = Math.min(1, Math.max(0, 1 - ratio))
+  return `${Math.round(remaining * 100)}% left`
+}
+
 /** Formats an elapsed duration in milliseconds: 45s, 12m 34s, 3h 05m. */
 export function formatDuration(milliseconds: number): string {
   if (!Number.isFinite(milliseconds) || milliseconds <= 0) return "0s"

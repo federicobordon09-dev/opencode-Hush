@@ -30,7 +30,7 @@ import { Show, createMemo, type Accessor, type JSX } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
 import { barFill } from "./core/bar.ts"
-import { formatCost, formatDuration, formatLimit, formatTokens } from "./core/format.ts"
+import { formatCost, formatDuration, formatRemaining, formatTokens } from "./core/format.ts"
 import type { Pressure } from "./core/usage.ts"
 import { createTelemetry } from "./telemetry.ts"
 
@@ -60,7 +60,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   const ratio = () => view.usage()?.ratio
   const contextColor = () =>
     ratio() === undefined ? theme.text.faint : pressureColor(theme, view.pressure())
-  const limitText = () => formatLimit(view.usage()?.limit)
+  const remainingText = () => formatRemaining(view.usage()?.ratio)
   const modelText = () => view.modelName(view.modelRef())
   const elapsedText = () => {
     const value = view.elapsed()
@@ -135,7 +135,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
               <box flexGrow={1} flexShrink={1} minWidth={0}>
                 <Bar theme={theme} ratio={value()} accent={accentColor(theme)} />
               </box>
-              <Show when={limitText()}>
+              <Show when={remainingText()}>
                 {(text) => (
                   <text fg={theme.text.muted} wrapMode="none" flexShrink={0}>
                     {text()}

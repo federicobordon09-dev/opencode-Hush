@@ -23,10 +23,10 @@ it("renders no duplicated window token count", () => {
   expect(panelSource()).not.toMatch(/<text[^>]*>\s*tokens<\/text>/)
 })
 
-it("keeps one row with the pressure dot, the bar and the limit", () => {
+it("keeps one row with the pressure dot, the bar and the remaining label", () => {
   const source = panelSource()
   expect(source).toMatch(/<Bar\b/)
-  expect(source).toMatch(/formatLimit\(/)
+  expect(source).toMatch(/formatRemaining\(/)
 })
 
 it("renders Git through the Row component instead of a standalone heading", () => {

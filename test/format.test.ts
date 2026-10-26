@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { formatCost, formatDuration, formatLimit, formatPercent, formatTokens } from "../src/core/format.ts"
+import { formatCost, formatDuration, formatLimit, formatPercent, formatRemaining, formatTokens } from "../src/core/format.ts"
 
 describe("formatTokens", () => {
   it("renders small counts as-is", () => {
@@ -66,6 +66,25 @@ describe("formatPercent", () => {
 
   it("treats invalid input as zero", () => {
     expect(formatPercent(Number.NaN)).toBe("0%")
+  })
+})
+
+describe("formatRemaining", () => {
+  it("reports the free share of the window", () => {
+    expect(formatRemaining(0.36)).toBe("64% left")
+    expect(formatRemaining(0)).toBe("100% left")
+    expect(formatRemaining(1)).toBe("0% left")
+  })
+
+  it("clamps out-of-range ratios", () => {
+    expect(formatRemaining(-0.5)).toBe("100% left")
+    expect(formatRemaining(1.5)).toBe("0% left")
+  })
+
+  it("stays undefined without a usable ratio", () => {
+    expect(formatRemaining(undefined)).toBeUndefined()
+    expect(formatRemaining(Number.NaN)).toBeUndefined()
+    expect(formatRemaining(Number.POSITIVE_INFINITY)).toBeUndefined()
   })
 })
 
