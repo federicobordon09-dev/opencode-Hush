@@ -148,14 +148,12 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
 
         <Show when={view.branch()}>
           {(branch) => (
-            <box flexDirection="column" marginTop={1}>
-              <text fg={theme.text.muted}>Git</text>
-              <box flexDirection="row">
-                <text fg={theme.text.feedback.success.base}>{"● "}</text>
-                <text fg={theme.text.base} wrapMode="none" truncate>
+            <box marginTop={1}>
+              <Row label="Git" color={theme.text.feedback.success.base}>
+                <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                   {branch()}
                 </text>
-              </box>
+              </Row>
             </box>
           )}
         </Show>
@@ -197,7 +195,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
         </Show>
 
         <Show when={elapsedText() !== undefined || reasoningText() !== undefined}>
-          <box flexDirection="column">
+          <box flexDirection="column" marginTop={1}>
             <Divider theme={theme} />
             <Show when={elapsedText()}>
               {(value) => (

@@ -28,3 +28,21 @@ it("keeps one row with the pressure dot, the bar and the limit", () => {
   expect(source).toMatch(/<Bar\b/)
   expect(source).toMatch(/formatLimit\(/)
 })
+
+it("renders Git through the Row component instead of a standalone heading", () => {
+  const source = panelSource()
+  expect(source).toMatch(/<Row label="Git"/)
+  expect(source).not.toMatch(/<text fg=\{theme\.text\.muted\}>Git<\/text>/)
+})
+
+it("keeps branch truncation in the Git row", () => {
+  const source = panelSource()
+  expect(source).toMatch(/<Row label="Git"[\s\S]*?truncate/)
+})
+
+it("normalizes the Age section spacing to match the other sections", () => {
+  const source = panelSource()
+  expect(source).toMatch(
+    /elapsedText\(\) !== undefined \|\| reasoningText\(\) !== undefined\}[\s\S]*?<box[^>]*marginTop=\{1\}/,
+  )
+})
