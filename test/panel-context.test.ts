@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { expect, it } from "vitest"
+import { METADATA_SYMBOLS } from "../src/panel.tsx"
 
 /**
  * Guard: the Context row must carry only what the host does not draw.
@@ -33,6 +34,26 @@ it("renders Git through the Row component instead of a standalone heading", () =
   const source = panelSource()
   expect(source).toMatch(/<Row label="Git"/)
   expect(source).not.toMatch(/<text fg=\{theme\.text\.muted\}>Git<\/text>/)
+})
+
+it("uses distinct semantic symbols for Git and every metadata indicator", () => {
+  const symbols = Object.values(METADATA_SYMBOLS)
+  expect(symbols).toHaveLength(7)
+  expect(new Set(symbols).size).toBe(symbols.length)
+  expect(METADATA_SYMBOLS).toEqual({
+    model: "◈",
+    cost: "$",
+    tokens: "Σ",
+    cached: "↻",
+    age: "◷",
+    reasoning: "∴",
+    git: "⑂",
+  })
+})
+
+it("keeps row symbols to one non-wrapping cell", () => {
+  const source = panelSource()
+  expect(source).toMatch(/<text fg=\{row\.color\} wrapMode="none" flexShrink=\{0\}>\{`\$\{row\.symbol\} `\}<\/text>/)
 })
 
 it("keeps branch truncation in the Git row", () => {

@@ -22,8 +22,8 @@
  *   the status word is spelled out next to the ones that matter.
  * - No duplicated host data: MCP, subagents and the prompt footer already live
  *   in OpenCode, so Hush adds only what the host does not show.
- * - Each secondary metric carries a colored dot next to its label, so the eye can
- *   find the row without reading it first.
+ * - Each secondary metric carries a compact semantic symbol next to its label,
+ *   so the eye can find the row without reading it first.
  */
 
 import { Show, createMemo, type Accessor, type JSX } from "solid-js"
@@ -38,8 +38,19 @@ type Context = Plugin.Context
 type Theme = Context["theme"]
 type Color = Theme["text"]["base"]
 
-/** Width of the label column in the summary block. Fits a dot plus the longest label. */
+/** Width of the label column in the summary block. Fits a symbol plus the longest label. */
 const LABEL_WIDTH = 12
+
+/** One-cell, terminal-friendly symbols for the secondary metrics. */
+export const METADATA_SYMBOLS = {
+  model: "◈",
+  cost: "$",
+  tokens: "Σ",
+  cached: "↻",
+  age: "◷",
+  reasoning: "∴",
+  git: "⑂",
+} as const
 
 /**
  * One accent hue for the whole panel: the semantic accent at step 200, the step
@@ -107,11 +118,12 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   const Row = (row: {
     readonly label: string
     readonly color: Color
+    readonly symbol: string
     readonly children: JSX.Element
   }) => (
     <box flexDirection="row" gap={1}>
       <box width={LABEL_WIDTH} flexShrink={0} flexDirection="row">
-        <text fg={row.color}>{"● "}</text>
+        <text fg={row.color} wrapMode="none" flexShrink={0}>{`${row.symbol} `}</text>
         <text fg={theme.text.muted} wrapMode="none">
           {row.label}
         </text>
@@ -149,7 +161,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
         <Show when={view.branch()}>
           {(branch) => (
             <box marginTop={1}>
-              <Row label="Git" color={theme.text.feedback.success.base}>
+              <Row label="Git" color={theme.text.feedback.success.base} symbol={METADATA_SYMBOLS.git}>
                 <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                   {branch()}
                 </text>
@@ -163,7 +175,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Divider theme={theme} />
             <Show when={modelText()}>
               {(value) => (
-                <Row label="Model" color={dot.model}>
+                <Row label="Model" color={dot.model} symbol={METADATA_SYMBOLS.model}>
                   <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                     {value()}
                   </text>
@@ -172,7 +184,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             </Show>
             <Show when={costText()}>
               {(value) => (
-                <Row label="Cost" color={dot.cost}>
+                <Row label="Cost" color={dot.cost} symbol={METADATA_SYMBOLS.cost}>
                   <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                     {value()}
                   </text>
@@ -181,7 +193,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             </Show>
             <Show when={tokensText()}>
               {(value) => (
-                <Row label="Tokens" color={dot.tokens}>
+                <Row label="Tokens" color={dot.tokens} symbol={METADATA_SYMBOLS.tokens}>
                   <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                     {value()}
                   </text>
@@ -190,7 +202,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             </Show>
             <Show when={cachedText()}>
               {(value) => (
-                <Row label="Cached" color={dot.cached}>
+                <Row label="Cached" color={dot.cached} symbol={METADATA_SYMBOLS.cached}>
                   <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                     {value()}
                   </text>
@@ -205,7 +217,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Divider theme={theme} />
             <Show when={elapsedText()}>
               {(value) => (
-                <Row label="Age" color={dot.age}>
+                <Row label="Age" color={dot.age} symbol={METADATA_SYMBOLS.age}>
                   <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                     {value()}
                   </text>
@@ -214,7 +226,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             </Show>
             <Show when={reasoningText()}>
               {(value) => (
-                <Row label="Reasoning" color={dot.reasoning}>
+                <Row label="Reasoning" color={dot.reasoning} symbol={METADATA_SYMBOLS.reasoning}>
                   <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
                     {value()}
                   </text>
