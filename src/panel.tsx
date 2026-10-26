@@ -173,21 +173,27 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Show when={costText()}>
               {(value) => (
                 <Row label="Cost" color={dot.cost}>
-                  <text fg={theme.text.base}>{value()}</text>
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
                 </Row>
               )}
             </Show>
             <Show when={tokensText()}>
               {(value) => (
                 <Row label="Tokens" color={dot.tokens}>
-                  <text fg={theme.text.base}>{value()}</text>
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
                 </Row>
               )}
             </Show>
             <Show when={cachedText()}>
               {(value) => (
                 <Row label="Cached" color={dot.cached}>
-                  <text fg={theme.text.base}>{value()}</text>
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
                 </Row>
               )}
             </Show>
@@ -200,14 +206,18 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
             <Show when={elapsedText()}>
               {(value) => (
                 <Row label="Age" color={dot.age}>
-                  <text fg={theme.text.base}>{value()}</text>
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
                 </Row>
               )}
             </Show>
             <Show when={reasoningText()}>
               {(value) => (
                 <Row label="Reasoning" color={dot.reasoning}>
-                  <text fg={theme.text.base}>{value()}</text>
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
                 </Row>
               )}
             </Show>

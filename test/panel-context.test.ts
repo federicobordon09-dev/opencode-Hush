@@ -53,3 +53,12 @@ it("lets the Context bar container shrink in narrow sidebars", () => {
   // fixed limit label cannot squeeze the bar out in a narrow sidebar.
   expect(source).toMatch(/<box flexGrow=\{1\} flexShrink=\{1\} minWidth=\{0\}>/)
 })
+
+it("truncates every metadata value to avoid narrow-sidebar overflow", () => {
+  const source = panelSource()
+  // No metadata value may render without truncation, otherwise a long model
+  // name or branch can push the row past the sidebar.
+  expect(source).not.toMatch(/<text fg=\{theme\.text\.base\}>\{value\(\)\}<\/text>/)
+  const truncated = [...source.matchAll(/truncate/g)].length
+  expect(truncated).toBeGreaterThanOrEqual(7)
+})
