@@ -132,7 +132,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
           {(value) => (
             <box marginTop={1} flexDirection="row" gap={1}>
               <text fg={contextColor()} flexShrink={0} wrapMode="none">{"● "}</text>
-              <box flexGrow={1} minWidth={0}>
+              <box flexGrow={1} flexShrink={1} minWidth={0}>
                 <Bar theme={theme} ratio={value()} accent={accentColor(theme)} />
               </box>
               <Show when={limitText()}>

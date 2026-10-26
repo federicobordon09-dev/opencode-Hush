@@ -46,3 +46,10 @@ it("normalizes the Age section spacing to match the other sections", () => {
     /elapsedText\(\) !== undefined \|\| reasoningText\(\) !== undefined\}[\s\S]*?<box[^>]*marginTop=\{1\}/,
   )
 })
+
+it("lets the Context bar container shrink in narrow sidebars", () => {
+  const source = panelSource()
+  // The bar container must allow shrinking like the Row value column, so a
+  // fixed limit label cannot squeeze the bar out in a narrow sidebar.
+  expect(source).toMatch(/<box flexGrow=\{1\} flexShrink=\{1\} minWidth=\{0\}>/)
+})
