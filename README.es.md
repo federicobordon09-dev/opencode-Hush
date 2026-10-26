@@ -22,9 +22,8 @@ Reiniciá OpenCode después. La primera carga puede tardar cerca de un minuto mi
 ## Qué muestra
 
 - **Contexto** — barra de presión y límite del modelo (del último mensaje del asistente con uso; límite desde `ModelInfo.limit.context`).
-- **Git** — rama actual (`data.location.vcs.info()`).
+- **Git** — rama actual (`data.location.vcs.info()`). Solo se muestra cuando OpenCode se ejecuta dentro de un repositorio git.
 - **Meta** — modelo, costo de la familia, tokens de la familia, tokens en caché, tiempo transcurrido, razonamiento activo.
-- **Subagentes** — una fila por sesión de subagente (estado, nombre, modelo y tarea), primero el trabajo en curso, hasta seis.
 
 Las secciones sin datos no se renderizan. Todas las cifras provienen del contexto del plugin; nada se estima ni se obtiene fuera del runtime local.
 

@@ -22,9 +22,8 @@ Restart OpenCode afterwards. The first load can take close to a minute while the
 ## What it shows
 
 - **Context** — pressure bar and model limit (from the last assistant message carrying usage; limit from `ModelInfo.limit.context`).
-- **Git** — current branch (`data.location.vcs.info()`).
+- **Git** — current branch (`data.location.vcs.info()`). Only shown when OpenCode runs inside a git repository.
 - **Meta** — model, family cost, family tokens, cached tokens, elapsed time, active reasoning.
-- **Subagents** — one row per subagent session (state, name, model and task), running work first, capped at six.
 
 Sections with no data render nothing. Every figure comes from the plugin context — nothing is estimated or fetched from outside the local runtime.
 
