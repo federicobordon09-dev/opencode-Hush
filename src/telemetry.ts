@@ -20,6 +20,7 @@ import { createEffect, createMemo, createSignal, onCleanup, untrack, type Access
 import type { Plugin } from "@opencode/plugin/tui"
 
 import type { SubagentSnapshot } from "./core/subagents.ts"
+import { createReasoningTracker } from "./core/reasoning.ts"
 import {
   contextMessage,
   contextPressure,
@@ -236,28 +237,24 @@ export function createTelemetry(context: Context, sessionID: Accessor<string | u
   const [now, setNow] = createSignal(Date.now())
   const ticker: ReturnType<typeof setInterval> = setInterval(() => setNow(Date.now()), 1_000)
 
-  const [reasoningSessions, setReasoningSessions] = createSignal<ReadonlySet<string>>(new Set())
-  const markReasoning = (id: string, active: boolean) => {
-    setReasoningSessions((current) => {
-      // Repeating a state the set already holds must not schedule a render.
-      if (current.has(id) === active) return current
-      const next = new Set(current)
-      if (active) next.add(id)
-      else next.delete(id)
-      return next
-    })
+  // There is no host snapshot for reasoning; consume the durable event stream
+  // and reject late events so a stale delivery cannot resurrect old state.
+  const reasoning = createReasoningTracker()
+  const onReasoning = (event: { readonly created: number; readonly data: { readonly sessionID: string }; readonly type: string }) => {
+    reasoning.apply(event)
+    setReasoningRevision((revision) => revision + 1)
   }
+  const [reasoningRevision, setReasoningRevision] = createSignal(0)
 
   const stops = [
-    context.data.on("session.reasoning.started", (event) => markReasoning(event.data.sessionID, true)),
-    context.data.on("session.reasoning.ended", (event) => markReasoning(event.data.sessionID, false)),
-    // An indicator outliving its execution would be a lie: every terminal event
-    // for a session clears its reasoning flag.
-    context.data.on("session.idle", (event) => markReasoning(event.data.sessionID, false)),
-    context.data.on("session.execution.succeeded", (event) => markReasoning(event.data.sessionID, false)),
-    context.data.on("session.execution.failed", (event) => markReasoning(event.data.sessionID, false)),
-    context.data.on("session.execution.interrupted", (event) => markReasoning(event.data.sessionID, false)),
-    context.data.on("session.deleted", (event) => markReasoning(event.data.sessionID, false)),
+    context.data.on("session.reasoning.started", onReasoning),
+    context.data.on("session.reasoning.delta", onReasoning),
+    context.data.on("session.reasoning.ended", onReasoning),
+    context.data.on("session.idle", onReasoning),
+    context.data.on("session.execution.succeeded", onReasoning),
+    context.data.on("session.execution.failed", onReasoning),
+    context.data.on("session.execution.interrupted", onReasoning),
+    context.data.on("session.deleted", onReasoning),
   ]
 
   onCleanup(() => {
@@ -275,7 +272,8 @@ export function createTelemetry(context: Context, sessionID: Accessor<string | u
     }),
     reasoning: createMemo(() => {
       const id = sessionID()
-      return id !== undefined && reasoningSessions().has(id)
+      reasoningRevision()
+      return reasoning.isActive(id)
     }),
   }
 }
