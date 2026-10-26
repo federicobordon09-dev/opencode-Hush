@@ -83,3 +83,9 @@ it("truncates every metadata value to avoid narrow-sidebar overflow", () => {
   const truncated = [...source.matchAll(/truncate/g)].length
   expect(truncated).toBeGreaterThanOrEqual(7)
 })
+
+it("marks available but incomplete token totals as estimates", () => {
+  const source = panelSource()
+  expect(source).toMatch(/view\.tokensAvailable\(\) && value > 0/)
+  expect(source).toMatch(/view\.tokensIncomplete\(\) \? "~" : ""/)
+})

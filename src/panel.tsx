@@ -79,11 +79,11 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   }
   const tokensText = () => {
     const value = view.sessionTokens()
-    return value > 0 ? `${formatTokens(value)} tok` : undefined
+    return view.tokensAvailable() && value > 0 ? `${view.tokensIncomplete() ? "~" : ""}${formatTokens(value)} tok` : undefined
   }
   const cachedText = () => {
     const value = view.cachedTokens()
-    return value > 0 ? `${formatTokens(value)} tok` : undefined
+    return view.tokensAvailable() && value > 0 ? `${view.tokensIncomplete() ? "~" : ""}${formatTokens(value)} tok` : undefined
   }
   const costText = () => {
     const value = view.cost()

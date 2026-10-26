@@ -4,6 +4,7 @@ import {
   contextMessage,
   contextPressure,
   contextUsage,
+  isCompleteTokenUsage,
   processedTokens,
   sumTokenTotals,
   totalTokens,
@@ -54,11 +55,11 @@ describe("sumTokenTotals", () => {
   it("splits processed tokens from cached reads across a family", () => {
     const root = usage({ input: 3_000, output: 900, reasoning: 100, cache: { read: 50_000, write: 0 } })
     const child = usage({ input: 200, output: 40, reasoning: 10, cache: { read: 2_000, write: 5 } })
-    expect(sumTokenTotals([root, child])).toEqual({ tokens: 4_255, cached: 52_000 })
+    expect(sumTokenTotals([root, child])).toEqual({ tokens: 4_255, cached: 52_000, complete: true, available: true })
   })
 
   it("reports zero for a family with no sessions", () => {
-    expect(sumTokenTotals([])).toEqual({ tokens: 0, cached: 0 })
+    expect(sumTokenTotals([])).toEqual({ tokens: 0, cached: 0, complete: true, available: false })
   })
 
   it("keeps the cached reads out of the processed total", () => {
@@ -67,9 +68,28 @@ describe("sumTokenTotals", () => {
     expect(totals.cached).toBe(900)
   })
 
-  it("ignores counters the host never filled in", () => {
-    const totals = sumTokenTotals([usage({ input: Number.NaN, cache: { read: Number.NaN } }), usage({ output: 5 })])
-    expect(totals).toEqual({ tokens: 5, cached: 0 })
+  it("keeps valid records but marks mixed totals incomplete", () => {
+    const invalid = { input: Number.NaN, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } as TokenUsageView
+    const totals = sumTokenTotals([invalid, usage({ output: 5 })])
+    expect(totals).toEqual({ tokens: 5, cached: 0, complete: false, available: true })
+  })
+
+  it("reports no available total when every record is incomplete", () => {
+    const missing = { input: 10, output: 0, reasoning: 0 } as unknown as TokenUsageView
+    expect(sumTokenTotals([missing])).toEqual({ tokens: 0, cached: 0, complete: false, available: false })
+  })
+})
+
+describe("token record completeness", () => {
+  it("accepts required finite fields, including legitimate zeros", () => {
+    expect(isCompleteTokenUsage(usage())).toBe(true)
+    expect(isCompleteTokenUsage(usage({ input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }))).toBe(true)
+  })
+
+  it("rejects missing, invalid, or non-finite required fields", () => {
+    expect(isCompleteTokenUsage(undefined)).toBe(false)
+    expect(isCompleteTokenUsage({ input: 1, output: 0, reasoning: 0 })).toBe(false)
+    expect(isCompleteTokenUsage({ input: 1, output: 0, reasoning: 0, cache: { read: Number.NaN, write: 0 } })).toBe(false)
   })
 })
 

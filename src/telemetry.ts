@@ -56,6 +56,10 @@ export type SessionData = {
   readonly sessionTokens: Accessor<number>
   /** Tokens the whole family read from the provider cache. */
   readonly cachedTokens: Accessor<number>
+  /** True when at least one family usage record was invalid or incomplete. */
+  readonly tokensIncomplete: Accessor<boolean>
+  /** True when at least one valid family usage record is available. */
+  readonly tokensAvailable: Accessor<boolean>
   readonly cost: Accessor<number>
   readonly branch: Accessor<string | undefined>
   /** One snapshot per subagent session in the family, mapped out of the host store. */
@@ -218,6 +222,8 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     pressure: createMemo(() => contextPressure(usage()?.ratio)),
     sessionTokens: createMemo(() => familyTokens()?.tokens ?? 0),
     cachedTokens: createMemo(() => familyTokens()?.cached ?? 0),
+    tokensIncomplete: createMemo(() => familyTokens() !== undefined && !familyTokens()!.complete),
+    tokensAvailable: createMemo(() => familyTokens()?.available ?? false),
     cost: createMemo(() => {
       // The host reports a root session's cost over its whole family, so subagent
       // spend is never missing and never counted twice.

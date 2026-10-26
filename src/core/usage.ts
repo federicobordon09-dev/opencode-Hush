@@ -46,7 +46,7 @@ export function totalTokens(tokens: TokenUsageView): number {
  * because the provider did not have to process them again.
  */
 export function processedTokens(tokens: TokenUsageView): number {
-  return usable(tokens.input) + usable(tokens.output) + usable(tokens.reasoning) + usable(tokens.cache?.write)
+  return (usable(tokens.input) ?? 0) + (usable(tokens.output) ?? 0) + (usable(tokens.reasoning) ?? 0) + (usable(tokens.cache?.write) ?? 0)
 }
 
 /** Token totals for a set of sessions, split so the cached reads stand apart. */
@@ -55,6 +55,10 @@ export type TokenTotals = {
   readonly tokens: number
   /** cache.read */
   readonly cached: number
+  /** Whether every supplied session record had all required finite counters. */
+  readonly complete: boolean
+  /** Whether at least one valid session record contributed to the total. */
+  readonly available: boolean
 }
 
 /**
@@ -64,16 +68,37 @@ export type TokenTotals = {
 export function sumTokenTotals(usages: readonly TokenUsageView[]): TokenTotals {
   let tokens = 0
   let cached = 0
+  let complete = true
+  let available = false
   for (const usage of usages) {
+    if (!isCompleteTokenUsage(usage)) {
+      complete = false
+      continue
+    }
+    available = true
     tokens += processedTokens(usage)
-    cached += usable(usage.cache?.read)
+    cached += usage.cache.read
   }
-  return { tokens, cached }
+  return { tokens, cached, complete, available }
+}
+
+/** Host token records require five finite counters; zero is a valid counter. */
+export function isCompleteTokenUsage(value: unknown): value is TokenUsageView {
+  if (typeof value !== "object" || value === null) return false
+  const record = value as Partial<TokenUsageView> & { cache?: Partial<TokenUsageView["cache"]> }
+  return (
+    usable(record.input) !== undefined &&
+    usable(record.output) !== undefined &&
+    usable(record.reasoning) !== undefined &&
+    record.cache !== undefined &&
+    usable(record.cache.read) !== undefined &&
+    usable(record.cache.write) !== undefined
+  )
 }
 
 /** A counter the host has not filled in yet is unknown, not negative. */
-function usable(value: number | undefined): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0
+function usable(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
 }
 
 /**
