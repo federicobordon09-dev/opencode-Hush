@@ -15,6 +15,8 @@ import { METADATA_SYMBOLS } from "../src/panel.tsx"
  */
 const panelSource = () =>
   readFileSync(fileURLToPath(new URL("../src/panel.tsx", import.meta.url)), "utf8")
+const telemetrySource = () =>
+  readFileSync(fileURLToPath(new URL("../src/telemetry.ts", import.meta.url)), "utf8")
 
 it("renders no Context label of its own", () => {
   expect(panelSource()).not.toMatch(/>Context</)
@@ -88,4 +90,10 @@ it("marks available but incomplete token totals as estimates", () => {
   const source = panelSource()
   expect(source).toMatch(/view\.tokensAvailable\(\) && value > 0/)
   expect(source).toMatch(/view\.tokensIncomplete\(\) \? "~" : ""/)
+})
+
+it("keeps zero cost visible only when the root session is available", () => {
+  const source = panelSource()
+  expect(source).toMatch(/view\.costAvailable\(\) \? formatCost\(value\) : undefined/)
+  expect(telemetrySource()).toMatch(/data\.session\.get\(id\) !== undefined/)
 })

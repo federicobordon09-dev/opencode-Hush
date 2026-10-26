@@ -20,6 +20,7 @@ import { createEffect, createMemo, createSignal, onCleanup, untrack, type Access
 import type { Plugin } from "@opencode/plugin/tui"
 
 import type { SubagentSnapshot } from "./core/subagents.ts"
+import { isCostAvailable } from "./core/cost.ts"
 import { createReasoningTracker } from "./core/reasoning.ts"
 import {
   contextMessage,
@@ -61,6 +62,8 @@ export type SessionData = {
   /** True when at least one valid family usage record is available. */
   readonly tokensAvailable: Accessor<boolean>
   readonly cost: Accessor<number>
+  /** True when the host still has the root session and its cost is safe to show. */
+  readonly costAvailable: Accessor<boolean>
   readonly branch: Accessor<string | undefined>
   /** One snapshot per subagent session in the family, mapped out of the host store. */
   readonly subagents: Accessor<readonly SubagentSnapshot[]>
@@ -211,6 +214,11 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     return snapshots
   })
 
+  const cost = createMemo(() => {
+    const id = rootID()
+    return id === undefined ? 0 : data.session.cost(id)
+  })
+
   return {
     startedAt: createMemo(() => {
       const created = session()?.time.created
@@ -224,11 +232,11 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
     cachedTokens: createMemo(() => familyTokens()?.cached ?? 0),
     tokensIncomplete: createMemo(() => familyTokens() !== undefined && !familyTokens()!.complete),
     tokensAvailable: createMemo(() => familyTokens()?.available ?? false),
-    cost: createMemo(() => {
-      // The host reports a root session's cost over its whole family, so subagent
-      // spend is never missing and never counted twice.
+    cost,
+    costAvailable: createMemo(() => {
       const id = rootID()
-      return id === undefined ? 0 : data.session.cost(id)
+      const value = cost()
+      return id !== undefined && isCostAvailable(data.session.get(id) !== undefined, value)
     }),
     branch: createMemo(() => data.location.vcs.info(location())?.branch.current),
     subagents,

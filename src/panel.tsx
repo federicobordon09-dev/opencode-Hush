@@ -87,7 +87,7 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   }
   const costText = () => {
     const value = view.cost()
-    return value > 0 ? formatCost(value) : undefined
+    return view.costAvailable() ? formatCost(value) : undefined
   }
   const reasoningText = () => (view.reasoning() ? "active" : undefined)
   const empty = () =>

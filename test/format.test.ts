@@ -127,4 +127,8 @@ describe("formatCost", () => {
     expect(formatCost(-3)).toBe("$0.00")
     expect(formatCost(Number.NaN)).toBe("$0.00")
   })
+
+  it("keeps a legitimate zero cost representable", () => {
+    expect(formatCost(0)).toBe("$0.00")
+  })
 })
