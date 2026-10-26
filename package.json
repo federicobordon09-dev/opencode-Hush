@@ -1,6 +1,6 @@
 {
   "name": "opencode-hush",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Sidebar telemetry panel for the OpenCode TUI: context pressure, Git branch and family session metrics the host does not draw",
   "type": "module",
   "license": "MIT",
