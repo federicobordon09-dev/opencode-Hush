@@ -21,6 +21,7 @@ import type { Plugin } from "@opencode/plugin/tui"
 
 import type { SubagentSnapshot } from "./core/subagents.ts"
 import { isCostAvailable } from "./core/cost.ts"
+import { resolveModelTelemetry, type ModelRef, type ModelSource } from "./core/model.ts"
 import { createReasoningTracker } from "./core/reasoning.ts"
 import {
   contextMessage,
@@ -42,13 +43,15 @@ type SessionMessage = ReturnType<Context["data"]["session"]["message"]["list"]>[
 const primed = new Set<string>()
 
 /** A model identity as the host reports it. */
-export type ModelRefView = { readonly providerID: string; readonly id: string }
+export type ModelRefView = ModelRef
 
 /** Everything Hush can read straight out of the host store for one session. */
 export type SessionData = {
   readonly startedAt: Accessor<number | undefined>
   /** The model that produced the current context, falling back to the session's then the prompt's selection. */
   readonly modelRef: Accessor<ModelRefView | undefined>
+  /** Where the displayed model reference came from; presentation stays unchanged. */
+  readonly modelSource: Accessor<ModelSource | undefined>
   /** Friendly model name from the host catalog, falling back to the raw id. */
   readonly modelName: (ref: ModelRefView | undefined) => string | undefined
   readonly usage: Accessor<ContextUsage | undefined>
@@ -124,15 +127,25 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
 
   const contextRecord = createMemo(() => contextMessage(history(), session()?.revert?.messageID))
 
-  const modelRef = createMemo(() => {
-    const fromContext = contextRecord()?.model
-    if (fromContext !== undefined) return { providerID: fromContext.providerID, id: fromContext.id }
-    const fallback = session()?.model ?? context.ui.model.current()
-    if (fallback === undefined) return undefined
-    return "id" in fallback
-      ? { providerID: fallback.providerID, id: fallback.id }
-      : { providerID: fallback.providerID, id: fallback.modelID }
+  const configuredModel = createMemo<ModelRefView | undefined>(() => {
+    const model = session()?.model
+    if (model !== undefined) return { providerID: model.providerID, id: model.id }
+    return undefined
   })
+
+  const selectedModel = createMemo<ModelRefView | undefined>(() => {
+    const model = context.ui.model.current()
+    if (model === undefined) return undefined
+    return { providerID: model.providerID, id: model.modelID }
+  })
+
+  const modelTelemetry = createMemo(() => {
+    const fromContext = contextRecord()?.model
+    const measured = fromContext === undefined ? undefined : { providerID: fromContext.providerID, id: fromContext.id }
+    return resolveModelTelemetry(measured, configuredModel(), selectedModel())
+  })
+
+  const modelRef = createMemo(() => modelTelemetry().ref)
 
   const modelInfo = createMemo(() => {
     const ref = modelRef()
@@ -225,6 +238,7 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
       return created !== undefined && Number.isFinite(created) && created > 0 ? created : undefined
     }),
     modelRef,
+    modelSource: createMemo(() => modelTelemetry().source),
     modelName,
     usage,
     pressure: createMemo(() => contextPressure(usage()?.ratio)),
