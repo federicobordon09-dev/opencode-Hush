@@ -131,12 +131,16 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
         <Show when={ratio()}>
           {(value) => (
             <box marginTop={1} flexDirection="row" gap={1}>
-              <text fg={contextColor()} flexShrink={0}>{"● "}</text>
+              <text fg={contextColor()} flexShrink={0} wrapMode="none">{"● "}</text>
               <box flexGrow={1} minWidth={0}>
                 <Bar theme={theme} ratio={value()} accent={accentColor(theme)} />
               </box>
               <Show when={limitText()}>
-                {(text) => <text fg={theme.text.muted}>{text()}</text>}
+                {(text) => (
+                  <text fg={theme.text.muted} wrapMode="none" flexShrink={0}>
+                    {text()}
+                  </text>
+                )}
               </Show>
             </box>
           )}
@@ -225,13 +229,16 @@ function Divider(props: { readonly theme: Theme }) {
 }
 
 function Bar(props: { readonly theme: Theme; readonly ratio: number; readonly accent: Color }) {
-  const fill = barFill(props.ratio)
+  // Props are reactive getters: deriving the fill outside a computation captures
+  // the ratio the bar first mounted with, so the fill would never grow. Reading
+  // it inside the memo keeps the width tied to the live context usage.
+  const fill = createMemo(() => barFill(props.ratio))
   return (
     <box flexDirection="row" width="100%" height={1}>
       <box
         height={1}
-        width={fill.width}
-        minWidth={fill.minWidth}
+        width={fill().width}
+        minWidth={fill().minWidth}
         border={["top"]}
         borderColor={props.accent}
       />
