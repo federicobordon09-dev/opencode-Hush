@@ -33,6 +33,7 @@ Restart OpenCode after installing. The first load can take close to a minute whi
 - **Context** — a compact pressure bar and the percentage of context remaining. The measurement comes from the latest assistant message with usage, compared with the model context limit when the host provides it.
 - **Git** — the current branch from the host's VCS data. This row appears only when OpenCode is running inside a Git repository.
 - **Meta** — the model, family cost, family processed tokens, cached tokens, session age, and active reasoning state.
+- **Session Awareness** — the current running or idle state, pending permissions or forms, active tools, and recent execution errors when OpenCode provides them.
 
 Each metadata row has a distinct terminal-friendly symbol. Missing values hide their row, and an empty section is not rendered. Hush does not estimate metrics or make external telemetry calls; all values come from the OpenCode plugin context and host store.
 
