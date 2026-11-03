@@ -31,6 +31,7 @@ import type { Plugin } from "@opencode/plugin/tui"
 
 import { barFill } from "./core/bar.ts"
 import { formatCost, formatDuration, formatRemaining, formatTokens } from "./core/format.ts"
+import { formatActiveTools } from "./core/awareness.ts"
 import type { Pressure } from "./core/usage.ts"
 import { createTelemetry } from "./telemetry.ts"
 
@@ -90,6 +91,11 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     return view.costAvailable() ? formatCost(value) : undefined
   }
   const reasoningText = () => (view.reasoning() ? "active" : undefined)
+  const activeToolText = () => formatActiveTools(view.awareness.activeTools())
+  const errorText = () => {
+    const error = view.awareness.error()
+    return error === undefined ? undefined : error.message ?? "Execution failed"
+  }
   const empty = () =>
     ratio() === undefined &&
     view.branch() === undefined &&
@@ -98,7 +104,12 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
     tokensText() === undefined &&
     cachedText() === undefined &&
     elapsedText() === undefined &&
-    reasoningText() === undefined
+    reasoningText() === undefined &&
+    view.awareness.status() === undefined &&
+    (view.awareness.permissions() ?? 0) === 0 &&
+    (view.awareness.forms() ?? 0) === 0 &&
+    errorText() === undefined &&
+    activeToolText() === undefined
 
   /** One hue per metric — each from a distinct categorical index so no two rows share a hue. */
   const dot = {
@@ -137,6 +148,62 @@ export function HushPanel(props: { readonly context: Context; readonly sessionID
   return (
     <box flexDirection="column">
       <Show when={!empty()} fallback={<text fg={theme.text.faint}>hush</text>}>
+        <Show when={
+          view.awareness.status() !== undefined ||
+          (view.awareness.permissions() ?? 0) > 0 ||
+          (view.awareness.forms() ?? 0) > 0 ||
+          errorText() !== undefined ||
+          activeToolText() !== undefined
+        }>
+          <box flexDirection="column" marginTop={1}>
+            <Show when={(view.awareness.permissions() ?? 0) > 0}>
+              <Row label="Permission" color={theme.text.feedback.warning.base} symbol="!">
+                <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                  {`${view.awareness.permissions()} waiting`}
+                </text>
+              </Row>
+            </Show>
+            <Show when={(view.awareness.forms() ?? 0) > 0}>
+              <Row label="Form" color={theme.text.feedback.warning.base} symbol="!">
+                <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                  {`${view.awareness.forms()} waiting`}
+                </text>
+              </Row>
+            </Show>
+            <Show when={errorText()}>
+              {(value) => (
+                <Row label="Error" color={theme.text.feedback.error.base} symbol="×">
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
+                </Row>
+              )}
+            </Show>
+            <Show when={activeToolText()}>
+              {(value) => (
+                <Row label="Tool" color={dot.reasoning} symbol="↻">
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {value()}
+                  </text>
+                </Row>
+              )}
+            </Show>
+            <Show when={view.awareness.status()}>
+              {(status) => (
+                <Row
+                  label="Session"
+                  color={status() === "running" ? theme.text.feedback.success.base : theme.text.muted}
+                  symbol="●"
+                >
+                  <text fg={theme.text.base} wrapMode="none" truncate flexShrink={1} minWidth={0}>
+                    {status() === "running" ? "Running" : "Idle"}
+                  </text>
+                </Row>
+              )}
+            </Show>
+          </box>
+        </Show>
+
         {/* The host already labels this block and shows the exact token count
             and percentage; Hush adds only what it does not draw: the pressure
             dot, the compact usage bar and the window limit. */}

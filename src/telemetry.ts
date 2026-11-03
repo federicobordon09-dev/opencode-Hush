@@ -16,10 +16,17 @@
  * `createTelemetry` adds the live metrics the panel needs.
  */
 
-import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor } from "solid-js"
+import { createEffect, createMemo, createRenderEffect, createSignal, onCleanup, untrack, type Accessor } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 
 import type { SubagentSnapshot } from "./core/subagents.ts"
+import {
+  activeTools as readActiveTools,
+  createExecutionErrorTracker,
+  recentExecutionError,
+  type RecentExecutionError,
+  type SessionRunState,
+} from "./core/awareness.ts"
 import { isCostAvailable } from "./core/cost.ts"
 import { resolveModelTelemetry, type ModelRef, type ModelSource } from "./core/model.ts"
 import { createReasoningTracker } from "./core/reasoning.ts"
@@ -81,6 +88,16 @@ export type Telemetry = SessionData & {
   readonly elapsed: Accessor<number | undefined>
   /** True while the active session is streaming reasoning content. */
   readonly reasoning: Accessor<boolean>
+  readonly awareness: SessionAwareness
+}
+
+/** OpenCode 2.1 session awareness. Each optional collection is absent until its sync succeeds. */
+export type SessionAwareness = {
+  readonly status: Accessor<SessionRunState | undefined>
+  readonly permissions: Accessor<number | undefined>
+  readonly forms: Accessor<number | undefined>
+  readonly activeTools: Accessor<ReturnType<typeof readActiveTools>>
+  readonly error: Accessor<RecentExecutionError | undefined>
 }
 
 export function createSessionData(context: Context, sessionID: Accessor<string | undefined>): SessionData {
@@ -261,6 +278,8 @@ export function createSessionData(context: Context, sessionID: Accessor<string |
 export function createTelemetry(context: Context, sessionID: Accessor<string | undefined>): Telemetry {
   const base = createSessionData(context, sessionID)
 
+  const awareness = createSessionAwareness(context, sessionID)
+
   // One timer for the whole panel: the clock the elapsed row reads.
   const [now, setNow] = createSignal(Date.now())
   const ticker: ReturnType<typeof setInterval> = setInterval(() => setNow(Date.now()), 1_000)
@@ -303,7 +322,114 @@ export function createTelemetry(context: Context, sessionID: Accessor<string | u
       reasoningRevision()
       return reasoning.isActive(id)
     }),
+    awareness,
   }
+}
+
+/** Hydrates one session's attention data, then relies on OpenCode's reactive stores for updates. */
+export function createSessionAwareness(context: Context, sessionID: Accessor<string | undefined>): SessionAwareness {
+  const data = context.data
+  const errors = createExecutionErrorTracker()
+  const [sessionReady, setSessionReady] = createSignal<string>()
+  const [messagesReady, setMessagesReady] = createSignal<string>()
+  const [permissionsReady, setPermissionsReady] = createSignal<string>()
+  const [formsReady, setFormsReady] = createSignal<string>()
+  const [errorRevision, setErrorRevision] = createSignal(0)
+
+  let generation = 0
+  const isCurrent = (id: string, ticket: number) => {
+    const result = ticket === generation && sessionID() === id
+    return result
+  }
+
+  const onExecutionEvent = (event: {
+    readonly type: string
+    readonly created: number
+    readonly data: { readonly sessionID: string; readonly error?: unknown }
+  }) => {
+    errors.apply(event, sessionID())
+    setErrorRevision((revision) => revision + 1)
+  }
+
+  const stops = [
+    data.on("session.execution.started", onExecutionEvent),
+    data.on("session.execution.succeeded", onExecutionEvent),
+    data.on("session.execution.failed", onExecutionEvent),
+    data.on("session.execution.interrupted", onExecutionEvent),
+  ]
+
+  createRenderEffect(() => {
+    const id = sessionID()
+    const ticket = ++generation
+    errors.activate(id)
+    setSessionReady(undefined)
+    setMessagesReady(undefined)
+    setPermissionsReady(undefined)
+    setFormsReady(undefined)
+    if (id === undefined) return
+
+    const ref = locationForSession(context, id)
+    void data.session.sync(id).then(() => {
+      if (isCurrent(id, ticket)) setSessionReady(id)
+    }).catch(() => {})
+    void data.session.message.sync(id).then(() => {
+      if (!isCurrent(id, ticket)) return
+      const snapshot = data.session.status(id) === "running"
+        ? undefined
+        : recentExecutionError(data.session.message.list(id))
+      errors.hydrate(id, snapshot)
+      setMessagesReady(id)
+    }).catch(() => {})
+    void data.session.permission.sync(id).then(() => {
+      if (isCurrent(id, ticket)) setPermissionsReady(id)
+    }).catch(() => {})
+    void data.session.form.sync(id, ref).then(() => {
+      if (isCurrent(id, ticket)) setFormsReady(id)
+    }).catch(() => {})
+  })
+
+  onCleanup(() => {
+    generation += 1
+    for (const stop of stops) stop()
+  })
+
+  return {
+    status: () => {
+      const id = sessionID()
+      if (id === undefined || sessionReady() !== id || data.session.get(id) === undefined) return undefined
+      return data.session.status(id)
+    },
+    permissions: () => {
+      const id = sessionID()
+      if (id === undefined || permissionsReady() !== id) return undefined
+      const requests = data.session.permission.list(id)
+      return requests?.length
+    },
+    forms: () => {
+      const id = sessionID()
+      if (id === undefined || formsReady() !== id) return undefined
+      const forms = data.session.form.list(id, locationForSession(context, id))
+      return forms?.length
+    },
+    activeTools: () => {
+      const id = sessionID()
+      if (id === undefined || messagesReady() !== id) return []
+      return readActiveTools(data.session.message.list(id))
+    },
+    error: () => {
+      errorRevision()
+      const id = sessionID()
+      if (id === undefined || messagesReady() !== id) return undefined
+      return errors.current(id)
+    },
+  }
+}
+
+function locationForSession(context: Context, id: string) {
+  const session = context.data.session.get(id)
+  return session === undefined
+    ? context.location ?? context.data.location.default()
+    : { directory: session.location.directory }
 }
 
 /** Maps a host session message into the shape the pure core understands. */
