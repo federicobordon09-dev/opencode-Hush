@@ -26,6 +26,8 @@ The values in the image above are illustrative examples, not a record of a speci
 opencode plugin add opencode-hush
 ```
 
+Compatibility: Node.js 22.18+ and OpenCode 2.1.x.
+
 Restart OpenCode after installing. The first load can take close to a minute while the host downloads and precompiles the plugin.
 
 ## What the panel shows
@@ -43,20 +45,6 @@ Each metadata row has a distinct terminal-friendly symbol. Missing values hide t
 - **`/hush-update`** — available in the prompt.
 
 The command asks the host's plugin API whether a newer `opencode-hush` release is available. After confirmation, the host installs the update. Restart OpenCode to load the new plugin code.
-
-## Requirements
-
-- Node.js 22.18 or newer
-- OpenCode 2.1.x
-
-## Development
-
-```sh
-pnpm install
-pnpm test
-pnpm build
-pnpm verify:pack
-```
 
 ## License
 
