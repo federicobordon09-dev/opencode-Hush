@@ -168,7 +168,7 @@ importers:
     devDependencies:
       '@opencode/plugin':
         specifier: ^2.0.32
-        version: 2.0.32(@opencode/theme@2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentelemetry/semantic-conventions@1.43.0)(@opentui/core@0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.6.6(solid-js@1.9.17)(typescript@7.0.2)(web-tree-sitter@0.25.10))(redis@6.3.0(@opentelemetry/api@1.9.0))(solid-js@1.9.17)
+        version: 2.0.32(@opencode/theme@2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentelemetry/semantic-conventions@1.43.0)(@opentui/core@0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.6.6(solid-js@1.9.18)(typescript@7.0.2)(web-tree-sitter@0.25.10))(redis@6.3.0(@opentelemetry/api@1.9.0))(solid-js@1.9.18)
       '@opencode/theme':
         specifier: 2.0.32
         version: 2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10)
@@ -177,7 +177,7 @@ importers:
         version: 0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/solid':
         specifier: ^0.6.6
-        version: 0.6.6(solid-js@1.9.17)(typescript@7.0.2)(web-tree-sitter@0.25.10)
+        version: 0.6.6(solid-js@1.9.18)(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
@@ -186,10 +186,10 @@ importers:
         version: 0.28.2
       esbuild-plugin-solid:
         specifier: ^0.6.0
-        version: 0.6.0(esbuild@0.28.2)(solid-js@1.9.17)
+        version: 0.6.0(esbuild@0.28.2)(solid-js@1.9.18)
       solid-js:
         specifier: ^1.9.17
-        version: 1.9.17
+        version: 1.9.18
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -2178,8 +2178,8 @@ packages:
     resolution: {integrity: sha512-e0VyvkVTwVYViNovRkZ9aodhxVlyoMn7eJhVUPxZ+eK9P/7CBkxvvsBOHqFPEH416726W8tLXXXjKwqgTErrCQ==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
 
-  solid-js@1.9.17:
-    resolution: {integrity: sha512-4GAmLOWPfNV8H9Jfn2LSFTpNEG6jiOKPiwd5lnLGQtehHaX6l3TOLzJqQ7mqwB/3k1Yy3zyumFVopmc/tm34ow==}
+  solid-js@1.9.18:
+    resolution: {integrity: sha512-CHGO5YFk6Y9m/1YSxVtKnXfrW7JD3Tmof8HmR4z6TmCPsS8efo8LnzIR8CQh3cUvffqYm6DWyBFfk8dQw1CNQQ==}
 
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
@@ -3131,19 +3131,19 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@opencode/client@2.0.32(effect@4.0.1)(solid-js@1.9.17)':
+  '@opencode/client@2.0.32(effect@4.0.1)(solid-js@1.9.18)':
     dependencies:
       '@opencode/protocol': 2.0.32
       '@opencode/schema': 2.0.32
     optionalDependencies:
       effect: 4.0.1
-      solid-js: 1.9.17
+      solid-js: 1.9.18
 
-  '@opencode/plugin@2.0.32(@opencode/theme@2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentelemetry/semantic-conventions@1.43.0)(@opentui/core@0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.6.6(solid-js@1.9.17)(typescript@7.0.2)(web-tree-sitter@0.25.10))(redis@6.3.0(@opentelemetry/api@1.9.0))(solid-js@1.9.17)':
+  '@opencode/plugin@2.0.32(@opencode/theme@2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentelemetry/semantic-conventions@1.43.0)(@opentui/core@0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.6.6(solid-js@1.9.18)(typescript@7.0.2)(web-tree-sitter@0.25.10))(redis@6.3.0(@opentelemetry/api@1.9.0))(solid-js@1.9.18)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@opencode/ai': 2.0.32
-      '@opencode/client': 2.0.32(effect@4.0.1)(solid-js@1.9.17)
+      '@opencode/client': 2.0.32(effect@4.0.1)(solid-js@1.9.18)
       '@opencode/protocol': 2.0.32
       '@opencode/schema': 2.0.32
       '@opencode/util': 2.0.32(@opentelemetry/semantic-conventions@1.43.0)(redis@6.3.0(@opentelemetry/api@1.9.0))
@@ -3151,8 +3151,8 @@ snapshots:
     optionalDependencies:
       '@opencode/theme': 2.0.32(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/core': 0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10)
-      '@opentui/solid': 0.6.6(solid-js@1.9.17)(typescript@7.0.2)(web-tree-sitter@0.25.10)
-      solid-js: 1.9.17
+      '@opentui/solid': 0.6.6(solid-js@1.9.18)(typescript@7.0.2)(web-tree-sitter@0.25.10)
+      solid-js: 1.9.18
     transitivePeerDependencies:
       - '@opentelemetry/sdk-trace-web'
       - '@opentelemetry/semantic-conventions'
@@ -3374,16 +3374,16 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@opentui/solid@0.6.6(solid-js@1.9.17)(typescript@7.0.2)(web-tree-sitter@0.25.10)':
+  '@opentui/solid@0.6.6(solid-js@1.9.18)(typescript@7.0.2)(web-tree-sitter@0.25.10)':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/preset-typescript': 7.27.1(@babel/core@7.29.7)
       '@opentui/core': 0.6.6(typescript@7.0.2)(web-tree-sitter@0.25.10)
       babel-plugin-module-resolver: 5.0.2
-      babel-preset-solid: 1.9.12(@babel/core@7.29.7)(solid-js@1.9.17)
+      babel-preset-solid: 1.9.12(@babel/core@7.29.7)(solid-js@1.9.18)
       entities: 7.0.1
       s-js: 0.4.9
-      solid-js: 1.9.17
+      solid-js: 1.9.18
     transitivePeerDependencies:
       - supports-color
       - typescript
@@ -3694,12 +3694,12 @@ snapshots:
       reselect: 4.1.8
       resolve: 1.22.13
 
-  babel-preset-solid@1.9.12(@babel/core@7.29.7)(solid-js@1.9.17):
+  babel-preset-solid@1.9.12(@babel/core@7.29.7)(solid-js@1.9.18):
     dependencies:
       '@babel/core': 7.29.7
       babel-plugin-jsx-dom-expressions: 0.40.11(@babel/core@7.29.7)
     optionalDependencies:
-      solid-js: 1.9.17
+      solid-js: 1.9.18
 
   balanced-match@1.0.2: {}
 
@@ -3837,13 +3837,13 @@ snapshots:
 
   es-module-lexer@2.3.2: {}
 
-  esbuild-plugin-solid@0.6.0(esbuild@0.28.2)(solid-js@1.9.17):
+  esbuild-plugin-solid@0.6.0(esbuild@0.28.2)(solid-js@1.9.18):
     dependencies:
       '@babel/core': 7.29.7
       '@babel/preset-typescript': 7.27.1(@babel/core@7.29.7)
-      babel-preset-solid: 1.9.12(@babel/core@7.29.7)(solid-js@1.9.17)
+      babel-preset-solid: 1.9.12(@babel/core@7.29.7)(solid-js@1.9.18)
       esbuild: 0.28.2
-      solid-js: 1.9.17
+      solid-js: 1.9.18
     transitivePeerDependencies:
       - supports-color
 
@@ -4519,7 +4519,7 @@ snapshots:
       ip-address: 10.7.4
       smart-buffer: 4.2.0
 
-  solid-js@1.9.17:
+  solid-js@1.9.18:
     dependencies:
       csstype: 3.2.3
       seroval: 1.6.11
